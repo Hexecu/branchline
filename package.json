@@ -1,0 +1,75 @@
+{
+  "name": "branchline",
+  "version": "0.3.0",
+  "private": true,
+  "description": "A local-first visual Git desktop client",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "postinstall": "node scripts/fix-pty.cjs",
+    "dev": "node scripts/dev.cjs",
+    "build": "tsc --noEmit && vite build",
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "format": "prettier --write src electron scripts tests vite.config.mts",
+    "package": "npm run build && electron-builder --mac dir",
+    "demo": "node scripts/demo.cjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock": "^3.1145.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1145.0",
+    "@aws-sdk/credential-providers": "^3.1145.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "google-auth-library": "^11.1.0",
+    "lucide-react": "^0.577.0",
+    "node-pty": "^1.1.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "electron": "44.5.1",
+    "electron-builder": "^26.0.12",
+    "prettier": "3.9.9",
+    "typescript": "^5.9.3",
+    "vite": "8.3.2"
+  },
+  "build": {
+    "appId": "local.branchline.desktop",
+    "productName": "Branchline",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
+    "beforePack": "scripts/before-pack.cjs",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "scripts/demo.cjs",
+      "package.json",
+      "assets/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "icon": "assets/icon.icns"
+    }
+  },
+  "license": "MIT",
+  "author": "Davide Leopardi",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hexecu/branchline.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Hexecu/branchline/issues"
+  },
+  "homepage": "https://github.com/Hexecu/branchline#readme"
+}

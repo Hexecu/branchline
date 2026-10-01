@@ -1,0 +1,35 @@
+{
+  "profiles": [
+    {
+      "profile": {
+        "id": "example-ollama",
+        "name": "Local Ollama",
+        "provider": "ollama",
+        "baseUrl": "http://127.0.0.1:11434",
+        "authMode": "none",
+        "model": ""
+      }
+    },
+    {
+      "profile": {
+        "id": "example-compatible",
+        "name": "Local OpenAI-compatible server",
+        "provider": "compatible",
+        "baseUrl": "http://127.0.0.1:1234/v1",
+        "authMode": "none",
+        "model": ""
+      }
+    },
+    {
+      "profile": {
+        "id": "example-vertex-adc",
+        "name": "Vertex with local ADC",
+        "provider": "vertex",
+        "project": "your-google-cloud-project",
+        "location": "global",
+        "authMode": "adc",
+        "model": "gemini-3.5-flash"
+      }
+    }
+  ]
+}

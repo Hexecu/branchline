@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Branchline</title>
+  <desc>Original Branchline icon: mint and violet Git branches on graphite.</desc>
+  <rect x="32" y="32" width="960" height="960" rx="220" fill="#181f29"/>
+  <rect x="57" y="57" width="910" height="910" rx="205" fill="none" stroke="#2e3c4a" stroke-width="4"/>
+  <path d="M360 350V690 M360 561H550L682 426V350" fill="none" stroke="#70dabc" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M360 651H550L636 733" fill="none" stroke="#a991f3" stroke-width="46" stroke-linejoin="round"/>
+  <g fill="#181f29" stroke="#70dabc" stroke-width="42">
+    <circle cx="360" cy="301" r="54"/><circle cx="682" cy="301" r="54"/><circle cx="360" cy="736" r="54"/>
+  </g>
+  <circle cx="682" cy="778" r="54" fill="#181f29" stroke="#a991f3" stroke-width="42"/>
+</svg>
