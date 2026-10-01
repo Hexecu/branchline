@@ -48,7 +48,9 @@
       "electron/**/*",
       "scripts/demo.cjs",
       "package.json",
-      "assets/**/*"
+      "assets/**/*",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md"
     ],
     "directories": {
       "output": "release"

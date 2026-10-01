@@ -21,6 +21,8 @@ The interface currently uses Italian labels. The [practical guide](docs/GUIDE.md
 
 ## Run locally
 
+A [macOS Apple Silicon preview](https://github.com/Hexecu/branchline/releases/tag/v0.3.0) is available as a ZIP containing the app. It is unsigned and not notarized. Download and extract it, then move `Branchline.app` to your Applications folder. Build from source with the steps below if you prefer.
+
 You need macOS, Git, Node.js 22.12 or newer, and npm. Install the dependencies and launch the development app:
 
 ```sh

@@ -55,7 +55,7 @@ Screenshots in `docs/screenshots/` use synthetic demo or public hosting data. Wo
 
 The final `npm run package` passed, including TypeScript checking, the renderer build and creation of the **0.3.0 macOS arm64 bundle**. Native checks above were performed separately from packaging. Public binary signing/notarization is not configured.
 
-GitHub CI is configured for locked installation, isolated tests and a build in four Ubuntu/macOS × Node 22/24 combinations. Its remote run is pending at this checkpoint; no green Actions result is claimed.
+GitHub CI completed locked installation, all 98 isolated tests and the renderer build successfully in all four Ubuntu/macOS × Node 22/24 combinations. See the [first public CI run](https://github.com/Hexecu/branchline/actions/runs/36933136620) for the tested source revision. The workflow also runs on subsequent pushes.
 
 ## External requirements and limits
 
