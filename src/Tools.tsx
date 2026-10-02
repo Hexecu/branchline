@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   X,
   GitCompare,
@@ -20,6 +20,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import type { Snapshot, Commit } from "./types";
+import { useI18n } from "./i18n";
 import "./tools.css";
 import "./ai-settings.css";
 import {
@@ -48,6 +49,11 @@ export default function ToolsPanel({
   onOpenAISettings?: () => void;
   aiSettingsVersion?: number;
 }) {
+  const { t, formatNumber } = useI18n();
+  const defaultPrompt = t(
+    "Scrivi un messaggio di commit conciso in inglese per queste modifiche. Spiega poi i rischi principali.",
+  );
+  const previousDefaultPrompt = useRef(defaultPrompt);
   const [tab, setTab] = useState("compare"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -65,15 +71,19 @@ export default function ToolsPanel({
     [patch, setPatch] = useState("");
   const [models, setModels] = useState<string[]>([]),
     [model, setModel] = useState(""),
-    [prompt, setPrompt] = useState(
-      "Scrivi un messaggio di commit conciso in inglese per queste modifiche. Spiega poi i rischi principali.",
-    ),
+    [prompt, setPrompt] = useState(defaultPrompt),
     [aiState, setAiState] = useState(""),
     [profiles, setProfiles] = useState<AIProfile[]>([]),
     [profileId, setProfileId] = useState(""),
     [aiLoading, setAILoading] = useState(false),
     [profileReload, setProfileReload] = useState(0);
   const selectedProfile = profiles.find((p) => p.id === profileId);
+  useEffect(() => {
+    setPrompt((current) =>
+      current === previousDefaultPrompt.current ? defaultPrompt : current,
+    );
+    previousDefaultPrompt.current = defaultPrompt;
+  }, [defaultPrompt]);
   useEffect(() => {
     if (tab !== "ai") return;
     let active = true;
@@ -136,17 +146,17 @@ export default function ToolsPanel({
         className="tools-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Strumenti repository"
+        aria-label={t("Strumenti repository")}
       >
         <header>
           <div>
-            <span className="tools-eyebrow">BRANCHLINE / STRUMENTI</span>
-            <h2>Un controllo più preciso.</h2>
+            <span className="tools-eyebrow">{t("BRANCHLINE / STRUMENTI")}</span>
+            <h2>{t("Un controllo più preciso.")}</h2>
             <p>
               {snapshot.name} <span>· {snapshot.branch}</span>
             </p>
           </div>
-          <button onClick={onClose} aria-label="Chiudi strumenti">
+          <button onClick={onClose} aria-label={t("Chiudi strumenti")}>
             <X size={20} />
           </button>
         </header>
@@ -162,7 +172,7 @@ export default function ToolsPanel({
               }}
             >
               <Icon size={15} />
-              {label}
+              {t(label)}
             </button>
           ))}
         </nav>
@@ -170,12 +180,13 @@ export default function ToolsPanel({
           {tab === "compare" && (
             <>
               <p className="tools-hint">
-                Confronta due branch, tag o commit. Il risultato mostra le
-                modifiche da A a B.
+                {t(
+                  "Confronta due branch, tag o commit. Il risultato mostra le modifiche da A a B.",
+                )}
               </p>
               <div className="tools-row">
                 <label>
-                  Da
+                  {t("Da")}
                   <input
                     value={from}
                     onChange={(e) => setFrom(e.target.value)}
@@ -184,7 +195,7 @@ export default function ToolsPanel({
                 </label>
                 <GitCompare size={18} />
                 <label>
-                  A
+                  {t("A")}
                   <input
                     value={to}
                     onChange={(e) => setTo(e.target.value)}
@@ -202,7 +213,7 @@ export default function ToolsPanel({
                     )
                   }
                 >
-                  Confronta
+                  {t("Confronta")}
                 </button>
               </div>
               <datalist id="tools-refs">
@@ -218,12 +229,13 @@ export default function ToolsPanel({
           {tab === "history" && (
             <>
               <p className="tools-hint">
-                Cerca le modifiche di un file e chi ha scritto ciascuna riga.
-                Percorso relativo al repository.
+                {t(
+                  "Cerca le modifiche di un file e chi ha scritto ciascuna riga. Percorso relativo al repository.",
+                )}
               </p>
               <div className="tools-row">
                 <label className="grow">
-                  File
+                  {t("File")}
                   <input
                     value={file}
                     placeholder="src/App.tsx"
@@ -241,7 +253,7 @@ export default function ToolsPanel({
                     })
                   }
                 >
-                  Cronologia
+                  {t("Cronologia")}
                 </button>
                 <button
                   disabled={!file || busy}
@@ -263,7 +275,7 @@ export default function ToolsPanel({
                     })
                   }
                 >
-                  Leggi
+                  {t("Leggi")}
                 </button>
               </div>
               {history.length > 0 && (
@@ -294,13 +306,13 @@ export default function ToolsPanel({
           {tab === "rebase" && (
             <>
               <p className="tools-hint">
-                Riscrivi solo commit locali: riordina, unisci o cambia il
-                messaggio. Viene creata una ref di recupero; il working tree
-                deve essere pulito.
+                {t(
+                  "Riscrivi solo commit locali: riordina, unisci o cambia il messaggio. Viene creata una ref di recupero; il working tree deve essere pulito.",
+                )}
               </p>
               <div className="tools-row">
                 <label className="grow">
-                  Base del rebase
+                  {t("Base del rebase")}
                   <input
                     value={base}
                     onChange={(e) => {
@@ -330,7 +342,7 @@ export default function ToolsPanel({
                     })
                   }
                 >
-                  Carica commit
+                  {t("Carica commit")}
                 </button>
               </div>
               {plan.length > 0 && (
@@ -342,14 +354,14 @@ export default function ToolsPanel({
                           <button
                             disabled={index === 0}
                             onClick={() => move(index, -1)}
-                            title="Sposta prima"
+                            title={t("Sposta prima")}
                           >
                             <ChevronUp size={13} />
                           </button>
                           <button
                             disabled={index === plan.length - 1}
                             onClick={() => move(index, 1)}
-                            title="Sposta dopo"
+                            title={t("Sposta dopo")}
                           >
                             <ChevronDown size={13} />
                           </button>
@@ -358,7 +370,9 @@ export default function ToolsPanel({
                         <div
                           className="tools-actions"
                           role="group"
-                          aria-label={`Azione per ${row.hash.slice(0, 7)}`}
+                          aria-label={t("Azione per {hash}", {
+                            hash: row.hash.slice(0, 7),
+                          })}
                         >
                           {["pick", "reword", "squash", "fixup", "drop"].map(
                             (a) => (
@@ -381,7 +395,7 @@ export default function ToolsPanel({
                         </div>
                         {row.action === "reword" ? (
                           <input
-                            aria-label="Nuovo messaggio"
+                            aria-label={t("Nuovo messaggio")}
                             value={row.message}
                             onChange={(e) =>
                               setPlan(
@@ -409,7 +423,7 @@ export default function ToolsPanel({
                             "repo.action",
                             { operation: "interactive.rebase", base, plan },
                           );
-                          setResult(r.output || "Rebase completato.");
+                          setResult(r.output || t("Rebase completato."));
                           setPlan([]);
                         } finally {
                           onChanged();
@@ -418,11 +432,13 @@ export default function ToolsPanel({
                     }
                   >
                     <Play size={14} />
-                    Esegui questo piano
+                    {t("Esegui questo piano")}
                   </button>
                   {snapshot.files.length > 0 && (
                     <p className="tools-hint">
-                      Fai commit o stash delle modifiche prima del rebase.
+                      {t(
+                        "Fai commit o stash delle modifiche prima del rebase.",
+                      )}
                     </p>
                   )}
                 </>
@@ -432,8 +448,9 @@ export default function ToolsPanel({
           {tab === "patch" && (
             <>
               <p className="tools-hint">
-                Condividi le modifiche come file locale .patch. Puoi importarlo
-                senza un servizio cloud; Git controlla che sia applicabile.
+                {t(
+                  "Condividi le modifiche come file locale .patch. Puoi importarlo senza un servizio cloud; Git controlla che sia applicabile.",
+                )}
               </p>
               <div className="tools-row">
                 <button
@@ -447,7 +464,7 @@ export default function ToolsPanel({
                   }
                 >
                   <FileCode size={14} />
-                  Modifiche non staged
+                  {t("Modifiche non staged")}
                 </button>
                 <button
                   disabled={busy}
@@ -460,10 +477,10 @@ export default function ToolsPanel({
                     })
                   }
                 >
-                  Modifiche staged
+                  {t("Modifiche staged")}
                 </button>
                 <label className="tools-upload">
-                  Importa .patch
+                  {t("Importa .patch")}
                   <input
                     type="file"
                     accept=".patch,.diff,text/plain"
@@ -481,14 +498,14 @@ export default function ToolsPanel({
                   onClick={() => exportText(patch, "branchline.patch")}
                 >
                   <Download size={14} />
-                  Esporta
+                  {t("Esporta")}
                 </button>
               </div>
               <textarea
                 className="tools-patch"
                 spellCheck={false}
                 value={patch}
-                placeholder="Incolla una patch Git o importa un file…"
+                placeholder={t("Incolla una patch Git o importa un file…")}
                 onChange={(e) => setPatch(e.target.value)}
               />
               <button
@@ -500,49 +517,50 @@ export default function ToolsPanel({
                       operation: "patch.apply",
                       patch,
                     });
-                    setResult(r.output || "Patch applicata.");
+                    setResult(r.output || t("Patch applicata."));
                     onChanged();
                   })
                 }
               >
                 <Check size={14} />
-                Controlla e applica
+                {t("Controlla e applica")}
               </button>
             </>
           )}
           {tab === "ai" && (
             <>
               <div className="tools-ai-heading">
-                <h3>Assistente per il tuo repository</h3>
+                <h3>{t("Assistente per il tuo repository")}</h3>
                 <button
                   disabled={busy || aiLoading}
                   onClick={() => setProfileReload((v) => v + 1)}
                 >
                   <RefreshCw size={13} />
-                  Ricarica profili
+                  {t("Ricarica profili")}
                 </button>
                 {onOpenAISettings && (
                   <button onClick={onOpenAISettings} disabled={busy}>
                     <Settings2 size={14} />
-                    Profili e modelli AI
+                    {t("Profili e modelli AI")}
                   </button>
                 )}
               </div>
               <p className="tools-hint">
-                Scegli un profilo e un modello. I suggerimenti vengono mostrati
-                per revisione e non eseguono comandi Git.
+                {t(
+                  "Scegli un profilo e un modello. I suggerimenti vengono mostrati per revisione e non eseguono comandi Git.",
+                )}
               </p>
               {aiLoading ? (
                 <div className="tools-ai-load">
                   <LoaderCircle size={18} className="spin" />
-                  Caricamento profili salvati…
+                  {t("Caricamento profili salvati…")}
                 </div>
               ) : profiles.length ? (
                 <>
                   <div
                     className="tools-ai-profiles"
                     role="group"
-                    aria-label="Profilo AI per il suggerimento"
+                    aria-label={t("Profilo AI per il suggerimento")}
                   >
                     {profiles.map((profile) => (
                       <button
@@ -566,10 +584,10 @@ export default function ToolsPanel({
                         <span>
                           {profile.name}
                           <small>
-                            {
+                            {t(
                               AIProviders.find((p) => p.id === profile.provider)
-                                ?.name
-                            }
+                                ?.name || profile.provider,
+                            )}
                           </small>
                         </span>
                         {profileId === profile.id && <Check size={12} />}
@@ -578,11 +596,11 @@ export default function ToolsPanel({
                   </div>
                   <div className="tools-row">
                     <label className="grow">
-                      Modello
+                      {t("Modello")}
                       <input
-                        aria-label="Modello AI del suggerimento"
+                        aria-label={t("Modello AI del suggerimento")}
                         list="tools-ai-models"
-                        placeholder="Modello salvato o ID manuale"
+                        placeholder={t("Modello salvato o ID manuale")}
                         value={model}
                         disabled={busy}
                         onChange={(e) => setModel(e.target.value)}
@@ -599,13 +617,15 @@ export default function ToolsPanel({
                           setModels(status.models);
                           setAiState(
                             status.message ||
-                              `${status.models.length} modelli disponibili.`,
+                              t("{count} modelli disponibili.", {
+                                count: formatNumber(status.models.length),
+                              }),
                           );
                         })
                       }
                     >
                       <RefreshCw size={13} />
-                      Rileva modelli
+                      {t("Rileva modelli")}
                     </button>
                     <button
                       disabled={busy || !selectedProfile || !model.trim()}
@@ -619,13 +639,13 @@ export default function ToolsPanel({
                             await invoke<AIConfiguration>("ai.settings");
                           setProfiles(config.profiles);
                           setAiState(
-                            "Profilo e modello salvati come scelta attiva.",
+                            t("Profilo e modello salvati come scelta attiva."),
                           );
                         })
                       }
                     >
                       <Check size={13} />
-                      Usa come attivo
+                      {t("Usa come attivo")}
                     </button>
                   </div>
                   <datalist id="tools-ai-models">
@@ -643,16 +663,28 @@ export default function ToolsPanel({
                         <Cloud size={17} />
                       )}
                       <div>
-                        <strong>{aiDestination(selectedProfile)}</strong>
+                        <strong>{aiDestination(selectedProfile, t)}</strong>
                         <p>
-                          Il diff{" "}
                           {snapshot.files.some((f) => f.staged)
-                            ? "dei file nello staging"
-                            : "delle modifiche non preparate"}{" "}
-                          verrà inviato al profilo “{selectedProfile.name}”
-                          usando {model || "il modello scelto"}.
+                            ? t(
+                                "Il diff dei file nello staging verrà inviato al profilo “{name}” usando {model}.",
+                                {
+                                  name: selectedProfile.name,
+                                  model: model || t("il modello scelto"),
+                                },
+                              )
+                            : t(
+                                "Il diff delle modifiche non preparate verrà inviato al profilo “{name}” usando {model}.",
+                                {
+                                  name: selectedProfile.name,
+                                  model: model || t("il modello scelto"),
+                                },
+                              )}
                           {selectedProfile.provider === "litellm"
-                            ? " Il gateway può inoltrare i dati a servizi cloud."
+                            ? " " +
+                              t(
+                                "Il gateway può inoltrare i dati a servizi cloud.",
+                              )
                             : ""}
                         </p>
                       </div>
@@ -660,7 +692,7 @@ export default function ToolsPanel({
                   )}
                   {aiState && <p className="tools-hint">{aiState}</p>}
                   <label>
-                    Richiesta
+                    {t("Richiesta")}
                     <textarea
                       value={prompt}
                       disabled={busy}
@@ -692,16 +724,16 @@ export default function ToolsPanel({
                     }
                   >
                     <Sparkles size={14} />
-                    Genera suggerimento
+                    {t("Genera suggerimento")}
                   </button>
                 </>
               ) : (
                 <div className="tools-ai-load">
                   <Settings2 size={18} />
-                  <span>Nessun profilo AI configurato.</span>
+                  <span>{t("Nessun profilo AI configurato.")}</span>
                   {onOpenAISettings && (
                     <button onClick={onOpenAISettings}>
-                      Configura un provider
+                      {t("Configura un provider")}
                     </button>
                   )}
                 </div>
@@ -713,14 +745,14 @@ export default function ToolsPanel({
               {error}
             </div>
           )}
-          {busy && <p className="tools-hint">Operazione in corso…</p>}
+          {busy && <p className="tools-hint">{t("Operazione in corso…")}</p>}
           {result && (
             <div className="tools-output">
               <header>
-                <span>Risultato</span>
+                <span>{t("Risultato")}</span>
                 <button onClick={() => navigator.clipboard.writeText(result)}>
                   <Copy size={13} />
-                  Copia
+                  {t("Copia")}
                 </button>
               </header>
               <pre>{result}</pre>

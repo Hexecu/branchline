@@ -65,7 +65,14 @@ import {
   Network,
   User,
   FileDiff,
+  Languages,
 } from "lucide-react";
+import {
+  useI18n,
+  LANGUAGES,
+  type Translator,
+  type TranslateParams,
+} from "./i18n";
 import Graph, { buildGraph, type GraphRowMetric } from "./Graph";
 import CommitMarkdown, { displayCommitText } from "./CommitText";
 import TerminalPanel from "./Terminal";
@@ -107,14 +114,14 @@ const field = (
   placeholder = "",
   required = true,
 ): Field => ({ name, label, placeholder, required });
-const actions: Action[] = [
+const actionDefinitions: Action[] = [
   {
     id: "branch.create",
     title: "Crea branch",
     group: "Branch",
     description: "Un nuovo ramo per il tuo lavoro.",
     fields: [
-      field("name", "Nome branch", "feature/nuova-idea"),
+      field("name", "Nome branch", "feature/new-idea"),
       field("start", "Punto di partenza", "HEAD", false),
       {
         name: "checkout",
@@ -167,7 +174,7 @@ const actions: Action[] = [
     group: "Cronologia",
     description: "Unisci un branch nel branch attualmente aperto.",
     fields: [
-      field("ref", "Branch da unire", "feature/nome"),
+      field("ref", "Branch da unire", "feature/name"),
       {
         name: "squash",
         label: "Squash: prepara tutte le modifiche come un singolo commit",
@@ -374,7 +381,7 @@ const actions: Action[] = [
     group: "Workspace",
     description: "Lavora su un altro branch in una cartella separata.",
     fields: [
-      field("destination", "Cartella", "/percorso/worktree"),
+      field("destination", "Cartella", "/path/to/worktree"),
       field("branch", "Branch esistente", "", false),
       field("newBranch", "Oppure crea un nuovo branch", "", false),
     ],
@@ -393,8 +400,8 @@ const actions: Action[] = [
     group: "Workspace",
     description: "Imposta nome ed email per i commit in questo repository.",
     fields: [
-      field("name", "Nome", "Mario Rossi"),
-      field("email", "Email", "mario@example.com"),
+      field("name", "Nome", "Alex Doe"),
+      field("email", "Email", "alex@example.invalid"),
     ],
   },
   {
@@ -577,7 +584,7 @@ const autoStashOperations = new Set([
   "rebase",
   "pull",
 ]);
-for (const action of actions)
+for (const action of actionDefinitions)
   if (autoStashOperations.has(action.id))
     action.fields = [
       ...(action.fields || []),
@@ -602,18 +609,6 @@ type HistorySnapshot = Snapshot & {
   historyFocus?: string | null;
   historyLimited?: boolean;
 };
-function relative(date: string) {
-  const d = new Date(date);
-  if (!Number.isFinite(d.getTime())) return date;
-  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
-  return days === 0
-    ? "Oggi"
-    : days === 1
-      ? "Ieri"
-      : days < 7
-        ? `${days} giorni fa`
-        : d.toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
-}
 function avatar(name: string) {
   return name
     .split(/\s+/)
@@ -622,7 +617,7 @@ function avatar(name: string) {
     .join("")
     .toUpperCase();
 }
-function gitCommandBase(id: string, v: Payload) {
+function gitCommandBase(id: string, v: Payload, t: Translator) {
   const quote = (x: unknown) => `'${String(x ?? "").replace(/'/g, "'\\''")}'`;
   const val = (key: string, fallback = "") => quote(v[key] || fallback);
   const flag = (key: string, text: string) => (v[key] ? ` ${text}` : "");
@@ -674,14 +669,18 @@ function gitCommandBase(id: string, v: Payload) {
     case "worktree.remove":
       return `git worktree remove ${val("destination")}`;
     case "ignore":
-      return `Aggiungi a .gitignore i file selezionati: ${v.filesText || ""}`;
+      return t("Aggiungi a .gitignore i file selezionati: {files}", {
+        files: String(v.filesText || ""),
+      });
     case "untrack":
       return `git rm --cached -- ${String(v.filesText || "")
         .split("\n")
         .map(quote)
         .join(" ")}`;
     case "discard.restore":
-      return `Ripristina copia di recupero ${val("backup")}`;
+      return t("Ripristina copia di recupero {backup}", {
+        backup: val("backup"),
+      });
     case "worktree.lock":
     case "worktree.unlock":
       return `git worktree ${id.split(".")[1]} ${val("destination")}`;
@@ -700,31 +699,55 @@ function gitCommandBase(id: string, v: Payload) {
       return "git submodule update --init --recursive";
     case "conflict.resolve":
       return v.strategy === "manuale"
-        ? `Scrivi contenuto risolto in ${val("file")}\ngit add -- ${val("file")}`
+        ? `${t("Scrivi contenuto risolto in {file}", { file: val("file") })}\ngit add -- ${val("file")}`
         : `git checkout --${v.strategy} -- ${val("file")}\ngit add -- ${val("file")}`;
     case "discard":
-      return `Crea copia di recupero locale\ngit restore --worktree -- ${((v.files as string[]) || []).map(quote).join(" ")}\n# i file non tracciati selezionati vengono rimossi`;
+      return `${t("Crea copia di recupero locale")}\ngit restore --worktree -- ${((v.files as string[]) || []).map(quote).join(" ")}\n${t("# i file non tracciati selezionati vengono rimossi")}`;
     case "undo":
     case "redo":
-      return "Ripristino protetto della precedente operazione locale";
+      return t("Ripristino protetto della precedente operazione locale");
     case "gitflow.init":
-      return `Prepara branch ${val("main")} e ${val("develop")} e configurazione Git Flow`;
+      return t("Prepara branch {main} e {develop} e configurazione Git Flow", {
+        main: val("main"),
+        develop: val("develop"),
+      });
     case "gitflow.start":
-      return `git switch -c ${quote(`${v.kind}/${v.name}`)} ${v.kind === "hotfix" ? "[branch produzione]" : "[branch sviluppo]"}`;
+      return `git switch -c ${quote(`${v.kind}/${v.name}`)} ${v.kind === "hotfix" ? t("[branch produzione]") : t("[branch sviluppo]")}`;
     case "gitflow.finish":
-      return `Merge protetto di ${quote(`${v.kind}/${v.name}`)} nei branch Git Flow`;
+      return t("Merge protetto di {branch} nei branch Git Flow", {
+        branch: quote(`${v.kind}/${v.name}`),
+      });
     default:
       return `git ${id}`;
   }
 }
-function gitCommand(id: string, values: Payload) {
-  const command = gitCommandBase(id, values);
+function gitCommand(id: string, values: Payload, t: Translator) {
+  const command = gitCommandBase(id, values, t);
   return values.autoStash
-    ? `# Conserva staged, unstaged e file non tracciati; ripristina dopo l’operazione
-${command}`
+    ? `${t("# Conserva staged, unstaged e file non tracciati; ripristina dopo l’operazione")}\n${command}`
     : command;
 }
 function App() {
+  const {
+    language,
+    locale,
+    t,
+    setLanguage,
+    formatNumber,
+    formatDate,
+    formatRelativeDate,
+  } = useI18n();
+  const actions = useMemo(
+    () =>
+      actionDefinitions.map((action) => ({
+        ...action,
+        title: t(action.title),
+        group: t(action.group),
+        description: t(action.description),
+        fields: action.fields?.map((f) => ({ ...f, label: t(f.label) })),
+      })),
+    [language, t],
+  );
   const [boot, setBoot] = useState<Bootstrap | null>(null),
     [snapshot, setSnapshot] = useState<Snapshot | null>(null),
     [busy, setBusy] = useState(false),
@@ -763,9 +786,12 @@ function App() {
     } | null>(null),
     [palette, setPalette] = useState(false),
     [paletteSearch, setPaletteSearch] = useState("");
-  const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(
-      null,
-    ),
+  const [toast, setToast] = useState<{
+      text: string;
+      error?: boolean;
+      translated?: boolean;
+      params?: TranslateParams;
+    } | null>(null),
     [output, setOutput] = useState<{
       title: string;
       text: string;
@@ -811,13 +837,18 @@ function App() {
     graphContentRef = useRef<HTMLDivElement>(null);
   liveSelection.current = selected;
   const notify = useCallback(
-    (text: string, error = false) => setToast({ text, error }),
+    (
+      text: string,
+      error = false,
+      translated = false,
+      params?: TranslateParams,
+    ) => setToast({ text, error, translated, params }),
     [],
   );
   const invoke = useCallback(<T,>(method: string, payload?: Payload) => {
     if (!window.branchline)
       throw new Error(
-        "Apri Branchline come applicazione desktop per usare Git.",
+        t("Apri Branchline come applicazione desktop per usare Git."),
       );
     return window.branchline.invoke<T>(method, payload);
   }, []);
@@ -927,7 +958,7 @@ function App() {
       const data = await invoke<Snapshot>("app.demo");
       if (token === repoEpoch.current) {
         openSnapshot(data);
-        notify("Demo pronta: repository locale isolato");
+        notify("Demo pronta: repository locale isolato", false, true);
       }
     } catch (e) {
       if (token === repoEpoch.current) notify(String(e), true);
@@ -971,6 +1002,9 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+  useEffect(() => {
+    setSettingsDraft((draft) => ({ ...draft, language }));
+  }, [language]);
   useEffect(
     () =>
       window.branchline?.on("repo.changed", (event: { path: string }) => {
@@ -987,11 +1021,11 @@ function App() {
           setPaletteSearch("");
         }
         if (command === "settings") {
-          setSettingsDraft(boot?.settings || {});
+          setSettingsDraft({ ...boot?.settings, language });
           setModal({ type: "settings", values: {} });
         }
       }),
-    [openRepo, boot],
+    [openRepo, boot, language],
   );
   useEffect(() => {
     if (!toast) return;
@@ -1054,7 +1088,19 @@ function App() {
         notify(
           operation === "commit"
             ? "Commit creato"
-            : `${actions.find((x) => x.id === operation)?.title || ({ stage: "File aggiunti allo staging", unstage: "File rimossi dallo staging", "hunk.stage": "Hunk aggiunto allo staging", "hunk.unstage": "Hunk rimosso dallo staging" } as Record<string, string>)[operation] || "Operazione completata"}`,
+            : actionDefinitions.find((action) => action.id === operation)
+                ?.title ||
+                (
+                  {
+                    stage: "File aggiunti allo staging",
+                    unstage: "File rimossi dallo staging",
+                    "hunk.stage": "Hunk aggiunto allo staging",
+                    "hunk.unstage": "Hunk rimosso dallo staging",
+                  } as Record<string, string>
+                )[operation] ||
+                "Operazione completata",
+          false,
+          true,
         );
         if (
           display ||
@@ -1062,8 +1108,8 @@ function App() {
           result.autoStash?.conflict
         )
           setOutput({
-            title: "Operazione completata",
-            text: result.output || "Completata senza output.",
+            title: t("Operazione completata"),
+            text: result.output || t("Completata senza output."),
             command: result.command,
           });
         return true;
@@ -1071,13 +1117,13 @@ function App() {
         if (livePath.current === actionPath) await refresh();
         setActivity(await invoke<Activity[]>("app.activity").catch(() => []));
         notify(String(e), true);
-        setOutput({ title: "Operazione non completata", text: String(e) });
+        setOutput({ title: t("Operazione non completata"), text: String(e) });
         return false;
       } finally {
         setBusy(false);
       }
     },
-    [invoke, refresh, notify, diff, boot?.settings],
+    [invoke, refresh, notify, diff, boot?.settings, actions],
   );
   const showAction = useCallback(
     (id: string, values: Payload = {}) => {
@@ -1115,7 +1161,7 @@ function App() {
         repoPath: livePath.current,
       });
     },
-    [snapshot, selected, boot?.settings],
+    [snapshot, selected, boot?.settings, actions],
   );
   const checkoutBranch = (name: string) => {
     if (busy || !snapshot || snapshot.branch === name) return;
@@ -1329,16 +1375,16 @@ function App() {
       setOutput({
         title:
           mode === "blame"
-            ? `Blame · ${diff.file}`
+            ? t("Blame · {file}", { file: diff.file })
             : mode === "history"
-              ? `Cronologia · ${diff.file}`
+              ? t("Cronologia · {file}", { file: diff.file })
               : diff.file,
         text:
           mode === "history"
             ? (result as Commit[])
                 .map(
                   (c) =>
-                    `${c.shortHash}  ${relative(c.date)}  ${c.author}\n${c.subject}\n`,
+                    `${c.shortHash}  ${formatRelativeDate(c.date)}  ${c.author}\n${c.subject}\n`,
                 )
                 .join("\n")
             : String(result),
@@ -1413,7 +1459,14 @@ function App() {
       .querySelectorAll(".commit-row")
       .forEach((row) => observer.observe(row));
     return () => observer.disconnect();
-  }, [filteredCommits, view, diff, refsWidth, boot?.settings.fontSize]);
+  }, [
+    filteredCommits,
+    view,
+    diff,
+    refsWidth,
+    boot?.settings.fontSize,
+    language,
+  ]);
   useLayoutEffect(() => {
     if (
       !selected ||
@@ -1482,13 +1535,15 @@ function App() {
           ) : (
             <ChevronDown size={12} />
           )}
-          <span>{label}</span>
+          <span>{t(label)}</span>
           <span className="subtle-count">{count}</span>
         </button>
         {add && (
           <button
             className="icon-button"
-            title={`Aggiungi ${label.toLowerCase()}`}
+            title={t("Aggiungi {name}", {
+              name: t(label).toLocaleLowerCase(locale),
+            })}
             onClick={() => showAction(add)}
           >
             <Plus size={13} />
@@ -1498,7 +1553,7 @@ function App() {
       {!collapsed[id] && (
         <div className="ref-items">
           {count === 0 ? (
-            <div className="ref-empty">Nessun {label.toLowerCase()}</div>
+            <div className="ref-empty">{t("Nessun riferimento")}</div>
           ) : (
             children
           )}
@@ -1518,28 +1573,33 @@ function App() {
       onContextMenu={(e) =>
         context(e, [
           {
-            label: isStaged ? "Rimuovi dallo staging" : "Aggiungi allo staging",
+            label: isStaged
+              ? t("Rimuovi dallo staging")
+              : t("Aggiungi allo staging"),
             fn: () =>
               void run(isStaged ? "unstage" : "stage", { files: [file.path] }),
           },
-          { label: "Apri diff", fn: () => void showDiff(file.path, isStaged) },
           {
-            label: "Ignora file (.gitignore)",
+            label: t("Apri diff"),
+            fn: () => void showDiff(file.path, isStaged),
+          },
+          {
+            label: t("Ignora file (.gitignore)"),
             operation: "ignore",
             values: { files: [file.path] },
           },
           {
-            label: "Smetti di tracciare il file",
+            label: t("Smetti di tracciare il file"),
             operation: "untrack",
             values: { files: [file.path] },
           },
           {
-            label: "Traccia con Git LFS",
+            label: t("Traccia con Git LFS"),
             operation: "lfs.track",
             values: { file: file.path },
           },
           {
-            label: "Scarta modifiche",
+            label: t("Scarta modifiche"),
             operation: "discard",
             values: { files: [file.path] },
             danger: true,
@@ -1547,7 +1607,7 @@ function App() {
           ...(file.conflict
             ? [
                 {
-                  label: "Risolvi conflitto",
+                  label: t("Risolvi conflitto"),
                   operation: "conflict.resolve",
                   values: { file: file.path },
                 },
@@ -1584,7 +1644,9 @@ function App() {
       </span>
       <button
         className="file-stage"
-        title={isStaged ? "Rimuovi dallo staging" : "Aggiungi allo staging"}
+        title={
+          isStaged ? t("Rimuovi dallo staging") : t("Aggiungi allo staging")
+        }
         disabled={busy}
         onClick={(e) => {
           e.stopPropagation();
@@ -1604,7 +1666,9 @@ function App() {
     if (modal.action && modal.repoPath !== livePath.current) {
       setModal(null);
       notify(
-        "Il repository è cambiato. Riapri l’operazione per il repository attuale.",
+        t(
+          "Il repository è cambiato. Riapri l’operazione per il repository attuale.",
+        ),
         true,
       );
       return;
@@ -1633,12 +1697,12 @@ function App() {
         if (success) setModal(null);
       } else if (modal.type === "settings") {
         const settings = await invoke<Settings>("app.settings", {
-          settings: settingsDraft,
+          settings: { ...settingsDraft, language },
         });
         setTheme(settings.theme);
         setBoot((b) => (b ? { ...b, settings } : b));
         setModal(null);
-        notify("Preferenze salvate");
+        notify("Preferenze salvate", false, true);
       } else {
         setBusy(true);
         openSnapshot(
@@ -1650,6 +1714,8 @@ function App() {
         setModal(null);
         notify(
           modal.type === "clone" ? "Repository clonato" : "Repository creato",
+          false,
+          true,
         );
       }
     } catch (e) {
@@ -1669,7 +1735,11 @@ function App() {
         type="button"
         className={`ref-label ${isTag ? "tag-ref" : branch?.remote ? "remote-ref" : "local-ref"}`}
         key={ref}
-        title={`${ref}${branch && !branch.remote ? " · Doppio clic per checkout" : ""}`}
+        title={
+          branch && !branch.remote
+            ? t("{ref} · Doppio clic per checkout", { ref })
+            : ref
+        }
         onClick={(e) => {
           e.stopPropagation();
           void selectCommit(hash);
@@ -1691,11 +1761,11 @@ function App() {
             isTag
               ? [
                   {
-                    label: "Visualizza commit",
+                    label: t("Visualizza commit"),
                     fn: () => void selectCommit(hash),
                   },
                   {
-                    label: "Elimina tag",
+                    label: t("Elimina tag"),
                     operation: "tag.delete",
                     values: { name: label },
                     danger: true,
@@ -1704,7 +1774,7 @@ function App() {
               : branch
                 ? [
                     {
-                      label: "Checkout branch",
+                      label: t("Checkout branch"),
                       operation: branch.remote
                         ? "branch.create"
                         : "branch.checkout",
@@ -1716,19 +1786,19 @@ function App() {
                         : { name: branch.name },
                     },
                     {
-                      label: "Merge nel branch attuale",
+                      label: t("Merge nel branch attuale"),
                       operation: "merge",
                       values: { ref: branch.name },
                     },
                     {
-                      label: "Crea branch qui",
+                      label: t("Crea branch qui"),
                       operation: "branch.create",
                       values: { start: hash },
                     },
                   ]
                 : [
                     {
-                      label: "Visualizza commit",
+                      label: t("Visualizza commit"),
                       fn: () => void selectCommit(hash),
                     },
                   ],
@@ -1773,7 +1843,7 @@ function App() {
               </button>
               <button
                 className="tab-close"
-                title="Chiudi repository"
+                title={t("Chiudi repository")}
                 onClick={async () => {
                   await invoke("repo.close", { path: r.path });
                   setBoot((b) =>
@@ -1796,12 +1866,12 @@ function App() {
           ))}
           <button
             className="tab-add"
-            title="Apri, crea o esplora un repository"
+            title={t("Apri, crea o esplora un repository")}
             onClick={(e) =>
               context(e, [
-                { label: "Apri repository", fn: () => void openRepo() },
+                { label: t("Apri repository"), fn: () => void openRepo() },
                 {
-                  label: "Clona repository",
+                  label: t("Clona repository"),
                   fn: () =>
                     setModal({
                       type: "clone",
@@ -1809,10 +1879,10 @@ function App() {
                     }),
                 },
                 {
-                  label: "Crea repository",
+                  label: t("Crea repository"),
                   fn: () => setModal({ type: "init", values: { path: "" } }),
                 },
-                { label: "Esplora demo isolata", fn: () => void openDemo() },
+                { label: t("Esplora demo isolata"), fn: () => void openDemo() },
               ])
             }
           >
@@ -1821,8 +1891,20 @@ function App() {
         </div>
         <div className="window-tools">
           <button
+            className="locale-switcher"
+            title={t("Lingua dell’interfaccia")}
+            aria-label={t("Lingua dell’interfaccia")}
+            onClick={() => {
+              setSettingsDraft({ ...boot?.settings, language });
+              setModal({ type: "settings", values: {} });
+            }}
+          >
+            <Languages size={16} />
+            <span>{language.split("-")[0].toUpperCase()}</span>
+          </button>
+          <button
             className="icon-button"
-            title="Palette comandi (⌘K)"
+            title={t("Palette comandi (⌘K)")}
             onClick={() => {
               setPalette(true);
               setPaletteSearch("");
@@ -1832,16 +1914,16 @@ function App() {
           </button>
           <button
             className="icon-button"
-            title={theme === "dark" ? "Tema chiaro" : "Tema scuro"}
+            title={theme === "dark" ? t("Tema chiaro") : t("Tema scuro")}
             onClick={() => void changeTheme()}
           >
             {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <button
             className="icon-button"
-            title="Preferenze"
+            title={t("Preferenze")}
             onClick={() => {
-              setSettingsDraft(boot?.settings || {});
+              setSettingsDraft({ ...boot?.settings, language });
               setModal({ type: "settings", values: {} });
             }}
           >
@@ -1852,20 +1934,20 @@ function App() {
       <div className="toolbar">
         <div className="undo-actions">
           <button
-            title="Annulla ultima operazione locale protetta"
+            title={t("Annulla ultima operazione locale protetta")}
             disabled={!snapshot || busy}
             onClick={() => void run("undo")}
           >
             <Undo2 size={17} />
-            <span>Annulla</span>
+            <span>{t("Annulla modifica")}</span>
           </button>
           <button
-            title="Ripeti operazione annullata"
+            title={t("Ripeti operazione annullata")}
             disabled={!snapshot || busy}
             onClick={() => void run("redo")}
           >
             <Redo2 size={17} />
-            <span>Ripeti</span>
+            <span>{t("Ripeti")}</span>
           </button>
         </div>
         <div className="toolbar-separator" />
@@ -1875,14 +1957,14 @@ function App() {
             onClick={() => void run("fetch", { prune: true })}
           >
             <RefreshCw size={17} className={busy ? "spin" : ""} />
-            <span>Fetch</span>
+            <span>{t("Fetch")}</span>
           </button>
           <button
             disabled={!snapshot || busy}
             onClick={() => showAction("pull")}
           >
             <ArrowDownToLine size={17} />
-            <span>Pull</span>
+            <span>{t("Pull")}</span>
             {snapshot && snapshot.behind > 0 && (
               <small>{snapshot.behind}</small>
             )}
@@ -1892,7 +1974,7 @@ function App() {
             onClick={() => showAction("push")}
           >
             <ArrowUpFromLine size={17} />
-            <span>Push</span>
+            <span>{t("Push")}</span>
             {snapshot && snapshot.ahead > 0 && <small>{snapshot.ahead}</small>}
           </button>
         </div>
@@ -1902,14 +1984,14 @@ function App() {
           onClick={() => showAction("branch.create")}
         >
           <GitBranch size={17} />
-          <span>Branch</span>
+          <span>{t("Branch")}</span>
         </button>
         <button
           disabled={!snapshot || busy}
           onClick={() => showAction("stash.create")}
         >
           <Layers size={17} />
-          <span>Stash</span>
+          <span>{t("Stash")}</span>
         </button>
         <button
           disabled={!snapshot}
@@ -1917,11 +1999,11 @@ function App() {
           className={terminal ? "on" : ""}
         >
           <Terminal size={17} />
-          <span>Terminale</span>
+          <span>{t("Terminale")}</span>
         </button>
         <button disabled={!snapshot} onClick={() => setToolsOpen(true)}>
           <Code2 size={17} />
-          <span>Strumenti</span>
+          <span>{t("Strumenti")}</span>
         </button>
         <div className="toolbar-spacer" />
         <button
@@ -1932,11 +2014,11 @@ function App() {
           }}
         >
           <Search size={15} />
-          <span>Cerca un comando…</span>
-          <kbd>⌘ K</kbd>
+          <span>{t("Cerca un comando…")}</span>
+          <kbd>{"⌘ K"}</kbd>
         </button>
         <button
-          title="Tutte le operazioni Git"
+          title={t("Tutte le operazioni Git")}
           disabled={!snapshot}
           onClick={(e) =>
             context(
@@ -1952,7 +2034,7 @@ function App() {
           <MoreHorizontal size={20} />
         </button>
         <button
-          title={rightOpen ? "Nascondi pannello" : "Mostra pannello"}
+          title={rightOpen ? t("Nascondi pannello") : t("Mostra pannello")}
           onClick={() => setRightOpen((r) => !r)}
         >
           {rightOpen ? (
@@ -1968,16 +2050,16 @@ function App() {
             <div className="welcome-logo">
               <GitFork size={40} />
             </div>
-            <div className="eyebrow">IL TUO WORKSPACE GIT</div>
+            <div className="eyebrow">{t("IL TUO WORKSPACE GIT")}</div>
             <h1>
-              Ogni branch.
+              {t("Ogni branch.")}
               <br />
-              <span>Una visione chiara.</span>
+              <span>{t("Una visione chiara.")}</span>
             </h1>
             <p>
-              La cronologia, le modifiche e il prossimo commit.
+              {t("La cronologia, le modifiche e il prossimo commit.")}
               <br />
-              Tutto nel tuo desktop, con Git sul tuo computer.
+              {t("Tutto nel tuo desktop, con Git sul tuo computer.")}
             </p>
             <div className="welcome-buttons">
               <button
@@ -1986,7 +2068,8 @@ function App() {
                 disabled={busy || loading}
               >
                 <FolderOpen size={17} />
-                Apri repository<kbd>⌘ O</kbd>
+                {t("Apri repository")}
+                <kbd>{"⌘ O"}</kbd>
               </button>
               <button
                 className="secondary"
@@ -1998,7 +2081,7 @@ function App() {
                 }
               >
                 <Download size={17} />
-                Clona repository
+                {t("Clona repository")}
               </button>
             </div>
             <div className="welcome-links">
@@ -2006,11 +2089,11 @@ function App() {
                 onClick={() => setModal({ type: "init", values: { path: "" } })}
               >
                 <Plus size={14} />
-                Crea repository
+                {t("Crea repository")}
               </button>
               <button disabled={busy} onClick={() => void openDemo()}>
                 <Play size={14} />
-                Esplora la demo
+                {t("Esplora la demo")}
               </button>
             </div>
           </div>
@@ -2094,12 +2177,12 @@ function App() {
               </svg>
               <span className="illustration-label">
                 <span className="status-dot" />
-                Il prossimo commit comincia qui
+                {t("Il prossimo commit comincia qui")}
               </span>
             </div>
             {!!boot?.repos.length && (
               <div className="recent-repos">
-                <div className="section-label">REPOSITORY RECENTI</div>
+                <div className="section-label">{t("REPOSITORY RECENTI")}</div>
                 {boot.repos.slice(0, 4).map((r) => (
                   <button key={r.path} onClick={() => void openRepo(r.path)}>
                     <FolderGit2 size={17} />
@@ -2116,7 +2199,7 @@ function App() {
           <div className="welcome-foot">
             <span>
               <ShieldCheck size={15} />
-              Git locale · Le credenziali restano sul tuo computer
+              {t("Git locale · Le credenziali restano sul tuo computer")}
             </span>
             <span>Branchline {boot?.version || "0.1.0"}</span>
           </div>
@@ -2138,19 +2221,19 @@ function App() {
                 </div>
                 <div>
                   <strong title={snapshot.name}>{snapshot.name}</strong>
-                  <span>Repository locale</span>
+                  <span>{t("Repository locale")}</span>
                 </div>
                 <ChevronDown size={14} />
               </div>
               <nav className="main-nav">
                 {(
                   [
-                    { id: "graph", label: "Grafo", icon: GitFork },
-                    { id: "changes", label: "Modifiche", icon: FileDiff },
-                    { id: "activity", label: "Attività", icon: History },
+                    { id: "graph", label: t("Grafo"), icon: GitFork },
+                    { id: "changes", label: t("Modifiche"), icon: FileDiff },
+                    { id: "activity", label: t("Attività"), icon: History },
                     {
                       id: "integrations",
-                      label: "Integrazioni",
+                      label: t("Integrazioni"),
                       icon: GitPullRequest,
                     },
                   ] as const
@@ -2166,9 +2249,13 @@ function App() {
                     <n.icon size={17} />
                     <span>{n.label}</span>
                     {n.id === "changes" && snapshot.files.length > 0 && (
-                      <span className="nav-badge">{snapshot.files.length}</span>
+                      <span className="nav-badge">
+                        {formatNumber(snapshot.files.length)}
+                      </span>
                     )}
-                    {n.id === "graph" && <span className="nav-hint">⌥ G</span>}
+                    {n.id === "graph" && (
+                      <span className="nav-hint">{"⌥ G"}</span>
+                    )}
                   </button>
                 ))}
               </nav>
@@ -2176,7 +2263,7 @@ function App() {
               <div className="refs-search">
                 <Search size={13} />
                 <input
-                  placeholder="Filtra riferimenti…"
+                  placeholder={t("Filtra riferimenti…")}
                   value={repoFilter}
                   onChange={(e) => setRepoFilter(e.target.value)}
                 />
@@ -2185,13 +2272,15 @@ function App() {
                 <button
                   title={
                     sidebarWide
-                      ? "Compatta navigator"
-                      : "Espandi navigator per leggere i nomi completi"
+                      ? t("Compatta navigator")
+                      : t("Espandi navigator per leggere i nomi completi")
                   }
                   onClick={() => setSidebarWide((v) => !v)}
                 >
                   <Maximize2 size={12} />
-                  {sidebarWide ? "Compatta navigator" : "Espandi navigator"}
+                  {sidebarWide
+                    ? t("Compatta navigator")
+                    : t("Espandi navigator")}
                 </button>
               </div>
               <div className="sidebar-scroll">
@@ -2216,28 +2305,28 @@ function App() {
                         onContextMenu={(e) =>
                           context(e, [
                             {
-                              label: "Checkout branch",
+                              label: t("Checkout branch"),
                               operation: "branch.checkout",
                               values: { name: b.name },
                             },
                             {
-                              label: "Merge nel branch attuale",
+                              label: t("Merge nel branch attuale"),
                               operation: "merge",
                               values: { ref: b.name },
                             },
                             {
-                              label: "Rebase su questo branch",
+                              label: t("Rebase su questo branch"),
                               operation: "rebase",
                               values: { ref: b.name },
                               danger: true,
                             },
                             {
-                              label: "Rinomina",
+                              label: t("Rinomina"),
                               operation: "branch.rename",
                               values: { name: b.name },
                             },
                             {
-                              label: "Elimina",
+                              label: t("Elimina"),
                               operation: "branch.delete",
                               values: { name: b.name },
                               danger: true,
@@ -2256,7 +2345,7 @@ function App() {
                 {boot?.settings.showRemoteBranches !== false &&
                   sidebarGroup(
                     "remote",
-                    "REMOTE",
+                    "BRANCH REMOTI",
                     snapshot.branches.filter((b) => b.remote).length,
                     <Cloud size={14} />,
                     snapshot.branches
@@ -2282,7 +2371,7 @@ function App() {
                           onContextMenu={(e) =>
                             context(e, [
                               {
-                                label: "Crea branch locale",
+                                label: t("Crea branch locale"),
                                 operation: "branch.create",
                                 values: {
                                   name: b.name.replace(/^[^/]+\//, ""),
@@ -2290,12 +2379,12 @@ function App() {
                                 },
                               },
                               {
-                                label: "Merge nel branch attuale",
+                                label: t("Merge nel branch attuale"),
                                 operation: "merge",
                                 values: { ref: b.name },
                               },
                               {
-                                label: "Rebase su questo branch",
+                                label: t("Rebase su questo branch"),
                                 operation: "rebase",
                                 values: { ref: b.name },
                                 danger: true,
@@ -2315,31 +2404,31 @@ function App() {
                   snapshot.tags.length,
                   <Tag size={14} />,
                   snapshot.tags
-                    .filter((t) =>
-                      t.name.toLowerCase().includes(repoFilter.toLowerCase()),
+                    .filter((tag) =>
+                      tag.name.toLowerCase().includes(repoFilter.toLowerCase()),
                     )
-                    .map((t) => (
+                    .map((tag) => (
                       <button
                         className="ref-item"
-                        key={t.name}
-                        onClick={() => void selectCommit(t.hash)}
+                        key={tag.name}
+                        onClick={() => void selectCommit(tag.hash)}
                         onContextMenu={(e) =>
                           context(e, [
                             {
-                              label: "Visualizza commit",
-                              fn: () => void selectCommit(t.hash),
+                              label: t("Visualizza commit"),
+                              fn: () => void selectCommit(tag.hash),
                             },
                             {
-                              label: "Elimina tag",
+                              label: t("Elimina tag"),
                               operation: "tag.delete",
-                              values: { name: t.name },
+                              values: { name: tag.name },
                               danger: true,
                             },
                           ])
                         }
                       >
                         <Tag size={14} />
-                        <span>{t.name}</span>
+                        <span>{tag.name}</span>
                       </button>
                     )),
                   "tag.create",
@@ -2358,17 +2447,17 @@ function App() {
                       onContextMenu={(e) =>
                         context(e, [
                           {
-                            label: "Applica stash",
+                            label: t("Applica stash"),
                             operation: "stash.apply",
                             values: { ref: s.ref },
                           },
                           {
-                            label: "Ripristina ed elimina",
+                            label: t("Ripristina ed elimina"),
                             operation: "stash.pop",
                             values: { ref: s.ref },
                           },
                           {
-                            label: "Elimina stash",
+                            label: t("Elimina stash"),
                             operation: "stash.drop",
                             values: { ref: s.ref },
                             danger: true,
@@ -2396,20 +2485,20 @@ function App() {
                       onContextMenu={(e) =>
                         context(e, [
                           {
-                            label: "Apri worktree",
+                            label: t("Apri worktree"),
                             fn: () => void openRepo(w.path),
                           },
                           {
                             label: w.locked
-                              ? "Sblocca worktree"
-                              : "Blocca worktree",
+                              ? t("Sblocca worktree")
+                              : t("Blocca worktree"),
                             operation: w.locked
                               ? "worktree.unlock"
                               : "worktree.lock",
                             values: { destination: w.path },
                           },
                           {
-                            label: "Rimuovi worktree",
+                            label: t("Rimuovi worktree"),
                             operation: "worktree.remove",
                             values: { destination: w.path },
                             danger: true,
@@ -2432,20 +2521,21 @@ function App() {
               </div>
               <div className="sidebar-bottom">
                 <div className="avatar small">
-                  {avatar(boot?.settings.identityName || "Utente locale")}
+                  {avatar(boot?.settings.identityName || t("Utente locale"))}
                 </div>
                 <div>
                   <strong>
-                    {boot?.settings.identityName || "Workspace locale"}
+                    {boot?.settings.identityName || t("Workspace locale")}
                   </strong>
                   <span>
                     <span className="status-dot" />
-                    Git {snapshot.gitVersion.replace(/^git version\s+/, "")}
+                    {"Git"}
+                    {snapshot.gitVersion.replace(/^git version\s+/, "")}
                   </span>
                 </div>
                 <button
                   className="icon-button"
-                  title="Identità repository"
+                  title={t("Identità repository")}
                   onClick={() =>
                     showAction("identity", {
                       name: boot?.settings.identityName || "",
@@ -2465,14 +2555,15 @@ function App() {
                   </span>
                   <h2
                     title={
-                      snapshot.branch || `Detached HEAD · ${snapshot.head}`
+                      snapshot.branch ||
+                      t("Detached HEAD · {hash}", { hash: snapshot.head })
                     }
                   >
                     {snapshot.branch || "Detached HEAD"}
                   </h2>
                   <button
                     className="icon-button"
-                    title="Cambia branch"
+                    title={t("Cambia branch")}
                     onClick={(e) =>
                       context(
                         e,
@@ -2493,20 +2584,23 @@ function App() {
                       <>
                         <span className="status-dot" />
                         {snapshot.ahead === 0 && snapshot.behind === 0
-                          ? "Sincronizzato"
-                          : `${snapshot.ahead} da inviare · ${snapshot.behind} da ricevere`}
+                          ? t("Sincronizzato")
+                          : t("{ahead} da inviare · {behind} da ricevere", {
+                              ahead: formatNumber(snapshot.ahead),
+                              behind: formatNumber(snapshot.behind),
+                            })}
                       </>
                     ) : (
                       <>
                         <span className="status-dot muted-dot" />
-                        Solo locale
+                        {t("Solo locale")}
                       </>
                     )}
                   </span>
                 </div>
                 <button
                   className="text-button"
-                  title="Apri nel Finder"
+                  title={t("Apri nel Finder")}
                   onClick={() => void invoke("app.reveal", { path })}
                 >
                   <FolderOpen size={14} />
@@ -2517,8 +2611,12 @@ function App() {
               {snapshot.operation && (
                 <div className="operation-banner">
                   <AlertTriangle size={16} />
-                  <strong>{snapshot.operation} in corso</strong>
-                  <span>Risolvi i conflitti per continuare.</span>
+                  <strong>
+                    {t("{operation} in corso", {
+                      operation: snapshot.operation,
+                    })}
+                  </strong>
+                  <span>{t("Risolvi i conflitti per continuare.")}</span>
                   <button
                     onClick={() =>
                       showAction("operation.continue", {
@@ -2526,7 +2624,7 @@ function App() {
                       })
                     }
                   >
-                    Continua
+                    {t("Continua")}
                   </button>
                   <button
                     onClick={() =>
@@ -2535,7 +2633,7 @@ function App() {
                       })
                     }
                   >
-                    Interrompi
+                    {t("Interrompi")}
                   </button>
                 </div>
               )}
@@ -2545,15 +2643,24 @@ function App() {
                 >
                   <Layers size={16} />
                   <div>
-                    <strong>Modifiche locali conservate in autostash</strong>
+                    <strong>
+                      {t("Modifiche locali conservate in autostash")}
+                    </strong>
                     <span>
                       {awaitingAutoStash
-                        ? "Ripristino dopo Continua o Interrompi"
+                        ? t("Ripristino dopo Continua o Interrompi")
                         : pendingAutoStash.conflict
-                          ? "Ripristino in conflitto: risolvi i file. Stash e riferimento di recupero restano disponibili; Applica stash consente il recupero manuale con staging."
-                          : "Ripristino manuale richiesto: recupera le modifiche con Applica stash e ripristina anche lo staging."}
+                          ? t(
+                              "Ripristino in conflitto: risolvi i file. Stash e riferimento di recupero restano disponibili; Applica stash consente il recupero manuale con staging.",
+                            )
+                          : t(
+                              "Ripristino manuale richiesto: recupera le modifiche con Applica stash e ripristina anche lo staging.",
+                            )}
                       {pendingAutoStash.originalBranch
-                        ? ` · branch originale ${pendingAutoStash.originalBranch}`
+                        ? " · " +
+                          t("branch originale {name}", {
+                            name: pendingAutoStash.originalBranch,
+                          })
                         : ""}
                     </span>
                   </div>
@@ -2569,8 +2676,11 @@ function App() {
                       }
                       title={
                         pendingAutoStash.conflict && conflicts.length > 0
-                          ? "Risolvi i conflitti prima di applicare lo stash"
-                          : `Apri Applica stash con ${pendingAutoStash.ref} e ripristino staging`
+                          ? t("Risolvi i conflitti prima di applicare lo stash")
+                          : t(
+                              "Apri Applica stash con {ref} e ripristino staging",
+                              { ref: pendingAutoStash.ref },
+                            )
                       }
                       onClick={() => {
                         setCollapsed((previous) => ({
@@ -2583,15 +2693,15 @@ function App() {
                         });
                       }}
                     >
-                      Recupero manuale
+                      {t("Recupero manuale")}
                     </button>
                   )}
                   <button
                     className="icon-button"
-                    title="Copia riferimento di recupero"
+                    title={t("Copia riferimento di recupero")}
                     onClick={() => {
                       void navigator.clipboard.writeText(pendingAutoStash.ref);
-                      notify("Riferimento di recupero copiato");
+                      notify("Riferimento di recupero copiato", false, true);
                     }}
                   >
                     <Copy size={13} />
@@ -2603,7 +2713,7 @@ function App() {
                   <div className="pane-heading diff-heading">
                     <button
                       className="icon-button"
-                      title="Torna al grafo"
+                      title={t("Torna al grafo")}
                       onClick={() => setDiff(null)}
                     >
                       <ArrowLeft size={17} />
@@ -2613,10 +2723,12 @@ function App() {
                       <strong>{diff.title}</strong>
                       <span>
                         {diff.commit
-                          ? `Commit ${diff.commit.slice(0, 8)}`
+                          ? t("Commit {hash}", {
+                              hash: diff.commit.slice(0, 8),
+                            })
                           : diff.staged
-                            ? "Staging"
-                            : "Working tree"}
+                            ? t("Staging")
+                            : t("Working tree")}
                       </span>
                     </div>
                     <div className="segmented-control">
@@ -2624,18 +2736,18 @@ function App() {
                         className={diffMode === "unified" ? "active" : ""}
                         onClick={() => setDiffMode("unified")}
                       >
-                        Unificato
+                        {t("Unificato")}
                       </button>
                       <button
                         className={diffMode === "split" ? "active" : ""}
                         onClick={() => setDiffMode("split")}
                       >
-                        Affiancato
+                        {t("Affiancato")}
                       </button>
                     </div>
                     <button
                       className="icon-button"
-                      title="Chiudi diff"
+                      title={t("Chiudi diff")}
                       onClick={() => setDiff(null)}
                     >
                       <X size={16} />
@@ -2644,17 +2756,17 @@ function App() {
                   <div className="diff-tools">
                     <span>
                       <FileDiff size={13} />
-                      Confronto delle modifiche
+                      {t("Confronto delle modifiche")}
                     </span>
                     <div>
                       <button onClick={() => void inspectFile("file")}>
-                        Contenuto
+                        {t("Contenuto")}
                       </button>
                       <button onClick={() => void inspectFile("blame")}>
-                        Blame
+                        {t("Blame")}
                       </button>
                       <button onClick={() => void inspectFile("history")}>
-                        Cronologia file
+                        {t("Cronologia file")}
                       </button>
                       {!diff.commit && (
                         <button
@@ -2667,8 +2779,8 @@ function App() {
                           }
                         >
                           {diff.staged
-                            ? "Rimuovi dallo staging"
-                            : "Aggiungi allo staging"}
+                            ? t("Rimuovi dallo staging")
+                            : t("Aggiungi allo staging")}
                         </button>
                       )}
                     </div>
@@ -2693,14 +2805,22 @@ function App() {
                 <>
                   <div className="graph-heading">
                     <div>
-                      <h3>Cronologia</h3>
+                      <h3>{t("Cronologia")}</h3>
                       <span>
-                        {snapshot.commits.length} commit
+                        {t(
+                          snapshot.commits.length === 1
+                            ? "1 commit"
+                            : "{count} commit",
+                          { count: formatNumber(snapshot.commits.length) },
+                        )}
                         {history?.historyLimited
-                          ? " · altri commit disponibili"
+                          ? " · " + t("altri commit disponibili")
                           : ""}
                         {history?.historyFocus
-                          ? ` · focus ${history.historyFocus.slice(0, 8)}`
+                          ? " · " +
+                            t("focus {hash}", {
+                              hash: history.historyFocus.slice(0, 8),
+                            })
                           : ""}
                       </span>
                     </div>
@@ -2709,14 +2829,14 @@ function App() {
                         className="history-overview"
                         onClick={() => void showAllHistory()}
                       >
-                        Tutti i riferimenti
+                        {t("Tutti i riferimenti")}
                       </button>
                     )}
                     <div className="graph-filter">
                       <Search size={14} />
                       <input
                         ref={graphSearchRef}
-                        placeholder="Cerca commit, autore, SHA…"
+                        placeholder={t("Cerca commit, autore, SHA…")}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                       />
@@ -2728,11 +2848,11 @@ function App() {
                           <X size={12} />
                         </button>
                       )}
-                      <kbd>⌘ F</kbd>
+                      <kbd>{"⌘ F"}</kbd>
                     </div>
                     <button
                       className="icon-button"
-                      title="Aggiorna (⌘R)"
+                      title={t("Aggiorna (⌘R)")}
                       disabled={busy}
                       onClick={() => void refresh()}
                     >
@@ -2752,15 +2872,20 @@ function App() {
                       <span className="wip-node" />
                     </span>
                     <span className="wip-subject">
-                      <strong>Working tree</strong>
+                      <strong>{t("Working tree")}</strong>
                       <span>
                         {snapshot.files.length
-                          ? `${snapshot.files.length} file modificati`
-                          : "Nessuna modifica locale"}
+                          ? t(
+                              snapshot.files.length === 1
+                                ? "1 file modificato"
+                                : "{count} file modificati",
+                              { count: formatNumber(snapshot.files.length) },
+                            )
+                          : t("Nessuna modifica locale")}
                       </span>
                     </span>
                     <span className="wip-pill">
-                      {snapshot.files.length ? "WIP" : "PULITO"}
+                      {snapshot.files.length ? t("WIP") : t("PULITO")}
                     </span>
                     <ChevronRight size={15} />
                   </button>
@@ -2783,17 +2908,19 @@ function App() {
                       }
                     >
                       <span className="refs-column-title">
-                        RIFERIMENTI
+                        {t("RIFERIMENTI")}
                         <div
                           className="refs-column-resize"
                           role="separator"
-                          aria-label="Larghezza colonna riferimenti"
+                          aria-label={t("Larghezza colonna riferimenti")}
                           aria-orientation="vertical"
                           aria-valuemin={128}
                           aria-valuemax={520}
                           aria-valuenow={refsWidth}
                           tabIndex={0}
-                          title="Trascina per ampliare i riferimenti · doppio clic per ripristinare"
+                          title={t(
+                            "Trascina per ampliare i riferimenti · doppio clic per ripristinare",
+                          )}
                           onPointerDown={resizeReferences}
                           onDoubleClick={() => setRefsWidth(210)}
                           onKeyDown={(e) => {
@@ -2815,10 +2942,10 @@ function App() {
                           }}
                         />
                       </span>
-                      <span>GRAFO</span>
-                      <span>MESSAGGIO</span>
-                      <span>AUTORE</span>
-                      <span>DATA</span>
+                      <span>{t("GRAFO")}</span>
+                      <span>{t("MESSAGGIO")}</span>
+                      <span>{t("AUTORE")}</span>
+                      <span>{t("DATA")}</span>
                       <span>SHA</span>
                     </div>
                     {filteredCommits.length ? (
@@ -2846,43 +2973,45 @@ function App() {
                             onContextMenu={(e) =>
                               context(e, [
                                 {
-                                  label: "Dettagli commit",
+                                  label: t("Dettagli commit"),
                                   fn: () => void selectCommit(c.hash),
                                 },
                                 {
-                                  label: "Apri questo commit (detached HEAD)",
+                                  label: t(
+                                    "Apri questo commit (detached HEAD)",
+                                  ),
                                   operation: "commit.checkout",
                                   values: { hash: c.hash },
                                 },
                                 {
-                                  label: "Copia SHA",
+                                  label: t("Copia SHA"),
                                   fn: () => {
                                     void navigator.clipboard.writeText(c.hash);
-                                    notify("SHA copiato");
+                                    notify("SHA copiato", false, true);
                                   },
                                 },
                                 {
-                                  label: "Crea branch qui",
+                                  label: t("Crea branch qui"),
                                   operation: "branch.create",
                                   values: { start: c.hash },
                                 },
                                 {
-                                  label: "Crea tag qui",
+                                  label: t("Crea tag qui"),
                                   operation: "tag.create",
                                   values: { ref: c.hash },
                                 },
                                 {
-                                  label: "Cherry-pick",
+                                  label: t("Cherry-pick"),
                                   operation: "cherryPick",
                                   values: { hash: c.hash },
                                 },
                                 {
-                                  label: "Revert",
+                                  label: t("Revert"),
                                   operation: "revert",
                                   values: { hash: c.hash },
                                 },
                                 {
-                                  label: "Reset su questo commit",
+                                  label: t("Reset su questo commit"),
                                   operation: "reset",
                                   values: { ref: c.hash },
                                   danger: true,
@@ -2906,9 +3035,12 @@ function App() {
                             </div>
                             <span
                               className="commit-date"
-                              title={new Date(c.date).toLocaleString("it-IT")}
+                              title={formatDate(c.date, {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
                             >
-                              {relative(c.date)}
+                              {formatRelativeDate(c.date)}
                             </span>
                             <code className="commit-hash">{c.shortHash}</code>
                           </div>
@@ -2919,13 +3051,17 @@ function App() {
                         icon={<GitCommitHorizontal size={27} />}
                         title={
                           search
-                            ? "Nessun commit trovato"
-                            : "Il primo commit ti aspetta"
+                            ? t("Nessun commit trovato")
+                            : t("Il primo commit ti aspetta")
                         }
                         text={
                           search
-                            ? "Prova un altro autore, messaggio o riferimento."
-                            : "Aggiungi file, preparali nello staging e crea il tuo primo commit."
+                            ? t(
+                                "Prova un altro autore, messaggio o riferimento.",
+                              )
+                            : t(
+                                "Aggiungi file, preparali nello staging e crea il tuo primo commit.",
+                              )
                         }
                       />
                     )}
@@ -2935,14 +3071,17 @@ function App() {
                 <div className="changes-view">
                   <div className="page-heading">
                     <div>
-                      <div className="eyebrow">WORKING TREE</div>
-                      <h2>Le tue modifiche</h2>
+                      <div className="eyebrow">{t("WORKING TREE")}</div>
+                      <h2>{t("Le tue modifiche")}</h2>
                       <p>
-                        Prepara il prossimo commit, un file o un hunk alla
-                        volta.
+                        {t(
+                          "Prepara il prossimo commit, un file o un hunk alla volta.",
+                        )}
                       </p>
                     </div>
-                    <span className="big-count">{snapshot.files.length}</span>
+                    <span className="big-count">
+                      {formatNumber(snapshot.files.length)}
+                    </span>
                   </div>
                   {snapshot.files.length ? (
                     <div className="changes-list">
@@ -2971,12 +3110,12 @@ function App() {
                             <strong>{f.path}</strong>
                             <span>
                               {f.conflict
-                                ? "Conflitto da risolvere"
+                                ? t("Conflitto da risolvere")
                                 : f.staged && f.unstaged
-                                  ? "Modifiche preparate e locali"
+                                  ? t("Modifiche preparate e locali")
                                   : f.staged
-                                    ? "Nello staging"
-                                    : "Non preparato"}
+                                    ? t("Nello staging")
+                                    : t("Non preparato")}
                             </span>
                           </div>
                           <ArrowUpRight size={17} />
@@ -2986,8 +3125,10 @@ function App() {
                   ) : (
                     <Empty
                       icon={<CheckCircle2 size={30} />}
-                      title="Tutto in ordine"
-                      text="Il working tree è pulito. Sei pronto per il prossimo passo."
+                      title={t("Tutto in ordine")}
+                      text={t(
+                        "Il working tree è pulito. Sei pronto per il prossimo passo.",
+                      )}
                     />
                   )}
                 </div>
@@ -2995,11 +3136,14 @@ function App() {
                 <div className="activity-view">
                   <div className="page-heading">
                     <div>
-                      <div className="eyebrow">IL TUO LAVORO, TRACCIABILE</div>
-                      <h2>Registro attività</h2>
+                      <div className="eyebrow">
+                        {t("IL TUO LAVORO, TRACCIABILE")}
+                      </div>
+                      <h2>{t("Registro attività")}</h2>
                       <p>
-                        Operazioni realmente eseguite da Branchline sul tuo
-                        computer.
+                        {t(
+                          "Operazioni realmente eseguite da Branchline sul tuo computer.",
+                        )}
                       </p>
                     </div>
                     <History size={28} />
@@ -3015,7 +3159,7 @@ function App() {
                           onClick={() =>
                             setOutput({
                               title: a.operation,
-                              text: a.output || "Completata senza output.",
+                              text: a.output || t("Completata senza output."),
                               command: a.command,
                             })
                           }
@@ -3037,7 +3181,7 @@ function App() {
                             <code>{a.command}</code>
                           </div>
                           <time>
-                            {new Date(a.time).toLocaleTimeString("it-IT", {
+                            {new Date(a.time).toLocaleTimeString(locale, {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
@@ -3048,19 +3192,25 @@ function App() {
                   ) : (
                     <Empty
                       icon={<History size={30} />}
-                      title="Una nuova pagina"
-                      text="Le operazioni eseguite compariranno qui, con comandi e risultati."
+                      title={t("Una nuova pagina")}
+                      text={t(
+                        "Le operazioni eseguite compariranno qui, con comandi e risultati.",
+                      )}
                     />
                   )}
                   <div className="reflog-heading">
-                    <h3>Reflog del repository</h3>
-                    <span>{snapshot.reflog.length} eventi Git</span>
+                    <h3>{t("Reflog del repository")}</h3>
+                    <span>
+                      {t("{count} eventi Git", {
+                        count: formatNumber(snapshot.reflog.length),
+                      })}
+                    </span>
                   </div>
                   {snapshot.reflog.slice(0, 30).map((r, i) => (
                     <div className="reflog-row" key={`${r.ref}-${i}`}>
                       <code>{r.hash.slice(0, 8)}</code>
                       <span>{r.subject}</span>
-                      <small>{relative(r.date)}</small>
+                      <small>{formatRelativeDate(r.date)}</small>
                     </div>
                   ))}
                 </div>
@@ -3079,10 +3229,10 @@ function App() {
                   <>
                     <div className="inspector-heading">
                       <GitCommitHorizontal size={18} />
-                      <h3>Dettagli commit</h3>
+                      <h3>{t("Dettagli commit")}</h3>
                       <button
                         className="icon-button"
-                        title="Torna alle modifiche locali"
+                        title={t("Torna alle modifiche locali")}
                         onClick={() => {
                           setSelected(null);
                           setDetails(null);
@@ -3093,21 +3243,21 @@ function App() {
                     </div>
                     {currentCommit ? (
                       <div className="commit-details">
-                        <div className="commit-detail-label">COMMIT</div>
+                        <div className="commit-detail-label">{t("COMMIT")}</div>
                         <h3 title={currentCommit.subject}>
                           {displayCommitText(currentCommit.subject)}
                         </h3>
                         {currentCommit.body && (
                           <>
                             <div className="commit-message-toolbar">
-                              <span>MESSAGGIO</span>
+                              <span>{t("MESSAGGIO")}</span>
                               <button
                                 className={rawCommitMessage ? "active" : ""}
                                 onClick={() => setRawCommitMessage((v) => !v)}
                               >
                                 {rawCommitMessage
-                                  ? "Mostra Markdown"
-                                  : "Testo originale"}
+                                  ? t("Mostra Markdown")
+                                  : t("Testo originale")}
                               </button>
                             </div>
                             {rawCommitMessage ? (
@@ -3124,7 +3274,7 @@ function App() {
                                 }
                                 onCopy={(code) => {
                                   void navigator.clipboard.writeText(code);
-                                  notify("Codice copiato");
+                                  notify("Codice copiato", false, true);
                                 }}
                               />
                             )}
@@ -3146,16 +3296,16 @@ function App() {
                               void navigator.clipboard.writeText(
                                 currentCommit.hash,
                               );
-                              notify("SHA copiato");
+                              notify("SHA copiato", false, true);
                             }}
                           >
                             <code>{currentCommit.shortHash}</code>
                             <Copy size={12} />
                           </button>
-                          <span>Data</span>
+                          <span>{t("Data")}</span>
                           <span>
                             {new Date(currentCommit.date).toLocaleString(
-                              "it-IT",
+                              locale,
                               {
                                 day: "2-digit",
                                 month: "short",
@@ -3165,7 +3315,7 @@ function App() {
                               },
                             )}
                           </span>
-                          <span>Parent</span>
+                          <span>{t("Parent")}</span>
                           <span>
                             {currentCommit.parents.length
                               ? currentCommit.parents.map((p) => (
@@ -3177,7 +3327,7 @@ function App() {
                                     {p.slice(0, 8)}
                                   </button>
                                 ))
-                              : "Commit iniziale"}
+                              : t("Commit iniziale")}
                           </span>
                         </div>
                         <div className="commit-detail-actions">
@@ -3188,30 +3338,30 @@ function App() {
                             }
                           >
                             <GitCommitHorizontal size={14} />
-                            Cherry-pick
+                            {t("Cherry-pick")}
                           </button>
                           <button
                             className="icon-button secondary"
-                            title="Altre operazioni"
+                            title={t("Altre operazioni")}
                             onClick={(e) =>
                               context(e, [
                                 {
-                                  label: "Revert commit",
+                                  label: t("Revert commit"),
                                   operation: "revert",
                                   values: { hash: selected },
                                 },
                                 {
-                                  label: "Crea branch",
+                                  label: t("Crea branch"),
                                   operation: "branch.create",
                                   values: { start: selected },
                                 },
                                 {
-                                  label: "Crea tag",
+                                  label: t("Crea tag"),
                                   operation: "tag.create",
                                   values: { ref: selected },
                                 },
                                 {
-                                  label: "Reset su commit",
+                                  label: t("Reset su commit"),
                                   operation: "reset",
                                   values: { ref: selected },
                                   danger: true,
@@ -3223,8 +3373,8 @@ function App() {
                           </button>
                         </div>
                         <div className="file-section-header">
-                          <strong>FILE MODIFICATI</strong>
-                          <span>{details.files.length}</span>
+                          <strong>{t("FILE MODIFICATI")}</strong>
+                          <span>{formatNumber(details.files.length)}</span>
                         </div>
                         <div className="detail-files">
                           {details.files.map((f) => (
@@ -3246,7 +3396,7 @@ function App() {
                     ) : (
                       <div className="loading-state">
                         <LoaderCircle size={20} className="spin" />
-                        Caricamento commit…
+                        {t("Caricamento commit…")}
                       </div>
                     )}
                   </>
@@ -3256,11 +3406,13 @@ function App() {
                       <span className="wip-icon">
                         <Square size={15} />
                       </span>
-                      <h3>Modifiche locali</h3>
-                      <span className="badge">{snapshot.files.length}</span>
+                      <h3>{t("Modifiche locali")}</h3>
+                      <span className="badge">
+                        {formatNumber(snapshot.files.length)}
+                      </span>
                       <button
                         className="icon-button"
-                        title="Aggiorna"
+                        title={t("Aggiorna")}
                         disabled={busy}
                         onClick={() => void refresh()}
                       >
@@ -3272,7 +3424,12 @@ function App() {
                         <div>
                           <AlertTriangle size={15} />
                           <strong>
-                            {conflicts.length} conflitti da risolvere
+                            {t(
+                              conflicts.length === 1
+                                ? "1 conflitto da risolvere"
+                                : "{count} conflitti da risolvere",
+                              { count: formatNumber(conflicts.length) },
+                            )}
                           </strong>
                         </div>
                         {conflicts.map((f) => (
@@ -3298,16 +3455,16 @@ function App() {
                             ) : (
                               <ChevronDown size={12} />
                             )}
-                            <strong>NON PREPARATI</strong>
-                            <span>{unstaged.length}</span>
+                            <strong>{t("NON PREPARATI")}</strong>
+                            <span>{formatNumber(unstaged.length)}</span>
                           </button>
                           <button
                             disabled={!unstaged.length || busy}
-                            title="Aggiungi tutti i file allo staging"
+                            title={t("Aggiungi tutti i file allo staging")}
                             onClick={() => void run("stage", { files: [] })}
                           >
                             <Plus size={13} />
-                            <span>Tutti</span>
+                            <span>{t("Tutti")}</span>
                           </button>
                         </div>
                         {!collapsed.unstaged &&
@@ -3316,7 +3473,7 @@ function App() {
                           ) : (
                             <div className="files-empty">
                               <Check size={13} />
-                              Nessuna modifica da preparare
+                              {t("Nessuna modifica da preparare")}
                             </div>
                           ))}
                       </div>
@@ -3331,16 +3488,16 @@ function App() {
                             ) : (
                               <ChevronDown size={12} />
                             )}
-                            <strong>STAGING</strong>
-                            <span>{staged.length}</span>
+                            <strong>{t("STAGING")}</strong>
+                            <span>{formatNumber(staged.length)}</span>
                           </button>
                           <button
                             disabled={!staged.length || busy}
-                            title="Rimuovi tutti i file dallo staging"
+                            title={t("Rimuovi tutti i file dallo staging")}
                             onClick={() => void run("unstage", { files: [] })}
                           >
                             <Minus size={13} />
-                            <span>Tutti</span>
+                            <span>{t("Tutti")}</span>
                           </button>
                         </div>
                         {!collapsed.staged &&
@@ -3351,10 +3508,11 @@ function App() {
                               <div className="staging-illustration">
                                 <GitCommitHorizontal size={24} />
                               </div>
-                              <span>Prepara ciò che vuoi includere</span>
+                              <span>{t("Prepara ciò che vuoi includere")}</span>
                               <small>
-                                Usa <b>+</b> sui file o seleziona un hunk nel
-                                diff
+                                {t(
+                                  "Usa + sui file o seleziona un hunk nel diff",
+                                )}
                               </small>
                             </div>
                           ))}
@@ -3365,19 +3523,23 @@ function App() {
                         <span className="avatar small">
                           {avatar(boot?.settings.identityName || "Commit")}
                         </span>
-                        <strong>Il prossimo commit</strong>
-                        <span>{staged.length} file</span>
+                        <strong>{t("Il prossimo commit")}</strong>
+                        <span>
+                          {t(staged.length === 1 ? "1 file" : "{count} file", {
+                            count: formatNumber(staged.length),
+                          })}
+                        </span>
                       </div>
                       <input
                         className="commit-subject-input"
-                        aria-label="Messaggio commit"
-                        placeholder="Messaggio del commit"
+                        aria-label={t("Messaggio commit")}
+                        placeholder={t("Messaggio del commit")}
                         value={subject}
                         onChange={(e) => setSubject(e.target.value)}
                       />
                       <textarea
-                        aria-label="Descrizione commit"
-                        placeholder="Descrizione estesa (facoltativa)"
+                        aria-label={t("Descrizione commit")}
+                        placeholder={t("Descrizione estesa (facoltativa)")}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         rows={3}
@@ -3389,7 +3551,7 @@ function App() {
                             checked={amend}
                             onChange={(e) => setAmend(e.target.checked)}
                           />
-                          Amend
+                          {t("Amend")}
                         </label>
                         <label>
                           <input
@@ -3397,16 +3559,16 @@ function App() {
                             checked={sign}
                             onChange={(e) => setSign(e.target.checked)}
                           />
-                          Firma GPG
+                          {t("Firma GPG")}
                         </label>
                         <span>
-                          {subject.length > 72 ? "Messaggio lungo" : ""}
+                          {subject.length > 72 ? t("Messaggio lungo") : ""}
                         </span>
                       </div>
                       {amend && (
                         <div className="amend-note">
                           <AlertTriangle size={12} />
-                          Amend sostituisce l’ultimo commit locale.
+                          {t("Amend sostituisce l’ultimo commit locale.")}
                         </div>
                       )}
                       <button
@@ -3425,14 +3587,19 @@ function App() {
                           <Check size={17} />
                         )}
                         <span>
-                          {amend ? "Amend commit" : "Crea commit"}
-                          {staged.length > 0 && ` · ${staged.length} file`}
+                          {amend ? t("Amend commit") : t("Crea commit")}
+                          {staged.length > 0 &&
+                            " · " +
+                              t(
+                                staged.length === 1 ? "1 file" : "{count} file",
+                                { count: formatNumber(staged.length) },
+                              )}
                         </span>
                         <kbd>⌘ ↵</kbd>
                       </button>
                       <div className="commit-foot">
                         <ShieldCheck size={12} />
-                        Il commit resta locale fino al push.
+                        {t("Il commit resta locale fino al push.")}
                       </div>
                     </div>
                   </>
@@ -3448,29 +3615,37 @@ function App() {
               <GitBranch size={12} />
               {snapshot.branch || snapshot.head.slice(0, 8)}
               {snapshot.files.length > 0 && (
-                <small>● {snapshot.files.length} modifiche</small>
+                <small>
+                  ●{" "}
+                  {t(
+                    snapshot.files.length === 1
+                      ? "1 modifica"
+                      : "{count} modifiche",
+                    { count: formatNumber(snapshot.files.length) },
+                  )}
+                </small>
               )}
             </span>
             <span className="statusbar-middle">
               {busy ? (
                 <>
                   <LoaderCircle className="spin" size={12} />
-                  Operazione in corso…
+                  {t("Operazione in corso…")}
                 </>
               ) : (
                 <>
                   <span className="status-dot" />
-                  Repository aggiornato
+                  {t("Repository aggiornato")}
                 </>
               )}
             </span>
             <span>
               <ShieldCheck size={12} />
-              Git locale
+              {t("Git locale")}
               <span className="statusbar-divider" />
               UTF-8
               <button
-                title="Aggiorna repository"
+                title={t("Aggiorna repository")}
                 onClick={() => void refresh()}
               >
                 <RefreshCw size={11} />
@@ -3544,7 +3719,12 @@ function App() {
               <CheckCircle2 size={17} />
             )}
           </span>
-          <div>{toast.text.replace(/^Error: /, "")}</div>
+          <div>
+            {(toast.translated
+              ? t(toast.text, toast.params)
+              : toast.text
+            ).replace(/^Error: /, "")}
+          </div>
           <button className="icon-button" onClick={() => setToast(null)}>
             <X size={14} />
           </button>
@@ -3588,29 +3768,32 @@ function App() {
             <h2>
               {modal.action?.title ||
                 {
-                  clone: "Clona un repository",
-                  init: "Crea un repository",
-                  settings: "Preferenze",
+                  clone: t("Clona un repository"),
+                  init: t("Crea un repository"),
+                  settings: t("Preferenze"),
                 }[modal.type!]}
             </h2>
             <p className="modal-description">
               {modal.action?.description ||
                 {
-                  clone:
+                  clone: t(
                     "Collega un progetto remoto a una nuova cartella locale.",
-                  init: "Inizializza Git in una cartella del tuo computer.",
-                  settings:
+                  ),
+                  init: t("Inizializza Git in una cartella del tuo computer."),
+                  settings: t(
                     "Un workspace che si adatta al tuo modo di lavorare.",
+                  ),
                 }[modal.type!]}
             </p>
             {modal.action?.id === "commit.checkout" && (
               <div className="detached-checkout-note">
                 <GitCommitHorizontal size={19} />
                 <div>
-                  <strong>Detached HEAD</strong>
+                  <strong>{t("Detached HEAD")}</strong>
                   <p>
-                    Puoi esplorare i file e i commit. Per continuare il lavoro
-                    su un ramo con un nome, crea un branch da questo commit.
+                    {t(
+                      "Puoi esplorare i file e i commit. Per continuare il lavoro su un ramo con un nome, crea un branch da questo commit.",
+                    )}
                   </p>
                   <button
                     type="button"
@@ -3623,7 +3806,7 @@ function App() {
                     }
                   >
                     <GitBranch size={14} />
-                    Crea un branch da qui
+                    {t("Crea un branch da qui")}
                   </button>
                 </div>
               </div>
@@ -3634,10 +3817,10 @@ function App() {
                 <div className="checkout-local-changes">
                   <Layers size={14} />
                   <span>
-                    {snapshot?.files.length} file con modifiche locali.
-                    Autostash conserva staged, unstaged e non tracciati e tenta
-                    il ripristino al termine; se ci sono conflitti mantiene un
-                    riferimento di recupero.
+                    {t(
+                      "{count} file con modifiche locali. Autostash conserva staged, unstaged e non tracciati e tenta il ripristino al termine; se ci sono conflitti mantiene un riferimento di recupero.",
+                      { count: formatNumber(snapshot?.files.length || 0) },
+                    )}
                   </span>
                 </div>
               )}
@@ -3645,8 +3828,9 @@ function App() {
               <div className="warning-box">
                 <AlertTriangle size={15} />
                 <span>
-                  Questa operazione modifica la cronologia o elimina dati
-                  locali. Verifica i riferimenti prima di confermare.
+                  {t(
+                    "Questa operazione modifica la cronologia o elimina dati locali. Verifica i riferimenti prima di confermare.",
+                  )}
                 </span>
               </div>
             )}
@@ -3654,19 +3838,55 @@ function App() {
               <div className="warning-box">
                 <AlertTriangle size={15} />
                 <span>
-                  Conferma il force push: riscrive il branch remoto se nessun
-                  altro lo ha aggiornato. Il comando usa --force-with-lease.
+                  {t(
+                    "Conferma il force push: riscrive il branch remoto se nessun altro lo ha aggiornato. Il comando usa --force-with-lease.",
+                  )}
                 </span>
               </div>
             )}
             {modal.type === "settings" ? (
               <div className="settings-fields">
+                <div className="settings-language-card">
+                  <label htmlFor="interface-language">
+                    {t("Lingua dell’interfaccia")}
+                    <select
+                      id="interface-language"
+                      value={language}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setSettingsDraft((draft) => ({
+                          ...draft,
+                          language: next,
+                        }));
+                        void setLanguage(next).catch((error) =>
+                          notify(String(error), true),
+                        );
+                      }}
+                    >
+                      {LANGUAGES.map((option) => (
+                        <option
+                          key={option.code}
+                          value={option.code}
+                          lang={option.code}
+                        >
+                          {option.nativeName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p>
+                    {t(
+                      "La lingua si applica subito. Le altre preferenze si salvano con il pulsante.",
+                    )}
+                  </p>
+                </div>
                 <div className="settings-ai-entry">
                   <div>
-                    <strong>Provider e modelli AI</strong>
+                    <strong>{t("Provider e modelli AI")}</strong>
                     <p>
-                      Collega chiavi, gateway cloud o modelli locali e scegli il
-                      modello attivo.
+                      {t(
+                        "Collega chiavi, gateway cloud o modelli locali e scegli il modello attivo.",
+                      )}
                     </p>
                   </div>
                   <button
@@ -3677,15 +3897,16 @@ function App() {
                       setAISettingsOpen(true);
                     }}
                   >
-                    Configura AI
+                    {t("Configura AI")}
                   </button>
                 </div>
                 <div className="settings-ai-entry">
                   <div>
-                    <strong>Account e server Git</strong>
+                    <strong>{t("Account e server Git")}</strong>
                     <p>
-                      Collega GitHub, GitLab, Bitbucket, Azure DevOps, Gitea o
-                      Forgejo e scegli il profilo per ogni remote.
+                      {t(
+                        "Collega GitHub, GitLab, Bitbucket, Azure DevOps, Gitea o Forgejo e scegli il profilo per ogni remote.",
+                      )}
                     </p>
                   </div>
                   <button
@@ -3696,11 +3917,11 @@ function App() {
                       setHostingSettingsOpen(true);
                     }}
                   >
-                    Profili hosting
+                    {t("Profili hosting")}
                   </button>
                 </div>
                 <label>
-                  Tema
+                  {t("Tema")}
                   <select
                     value={settingsDraft.theme || theme}
                     onChange={(e) =>
@@ -3710,12 +3931,12 @@ function App() {
                       })
                     }
                   >
-                    <option value="dark">Scuro · Graphite</option>
-                    <option value="light">Chiaro · Porcelain</option>
+                    <option value="dark">{t("Scuro · Graphite")}</option>
+                    <option value="light">{t("Chiaro · Porcelain")}</option>
                   </select>
                 </label>
                 <label>
-                  Dimensione testo
+                  {t("Dimensione testo")}
                   <select
                     value={settingsDraft.fontSize || 13}
                     onChange={(e) =>
@@ -3733,7 +3954,7 @@ function App() {
                   </select>
                 </label>
                 <label>
-                  Nome
+                  {t("Nome")}
                   <input
                     value={settingsDraft.identityName || ""}
                     onChange={(e) =>
@@ -3745,7 +3966,7 @@ function App() {
                   />
                 </label>
                 <label>
-                  Email
+                  {t("Email")}
                   <input
                     type="email"
                     value={settingsDraft.identityEmail || ""}
@@ -3768,7 +3989,7 @@ function App() {
                       })
                     }
                   />
-                  Fetch automatico
+                  {t("Fetch automatico")}
                 </label>
                 <label className="checkbox-field">
                   <input
@@ -3781,12 +4002,12 @@ function App() {
                       })
                     }
                   />
-                  Autostash per checkout, merge, rebase e pull
+                  {t("Autostash per checkout, merge, rebase e pull")}
                 </label>
                 <p className="settings-autostash-description">
-                  Conserva staged, unstaged e file non tracciati prima
-                  dell’operazione e tenta il ripristino al termine. In caso di
-                  conflitto resta disponibile un riferimento di recupero.
+                  {t(
+                    "Conserva staged, unstaged e file non tracciati prima dell’operazione e tenta il ripristino al termine. In caso di conflitto resta disponibile un riferimento di recupero.",
+                  )}
                 </p>
                 <label className="checkbox-field">
                   <input
@@ -3799,11 +4020,12 @@ function App() {
                       })
                     }
                   />
-                  Mostra branch remoti
+                  {t("Mostra branch remoti")}
                 </label>
                 <p className="fineprint">
-                  Nome ed email sono i valori preferiti dell’app. Per impostarli
-                  sul repository usa “Identità Git”.
+                  {t(
+                    "Nome ed email sono i valori preferiti dell’app. Per impostarli sul repository usa “Identità Git”.",
+                  )}
                 </p>
               </div>
             ) : (
@@ -3814,19 +4036,19 @@ function App() {
                       field(
                         "url",
                         "URL del repository",
-                        "https://github.com/team/progetto.git",
+                        "https://git.example.com/team/project.git",
                       ),
                       field(
                         "destination",
                         "Cartella di destinazione",
-                        "/Users/…/Progetti/progetto",
+                        "/path/to/project",
                       ),
                     ]
                   : [
                       field(
                         "path",
                         "Cartella del repository",
-                        "/Users/…/Progetti/progetto",
+                        "/path/to/project",
                       ),
                     ])
               ).map((f) => (
@@ -3851,12 +4073,12 @@ function App() {
                           })
                         }
                       />
-                      {f.label}
+                      {t(f.label)}
                     </>
                   ) : (
                     <>
                       <span>
-                        {f.label}
+                        {t(f.label)}
                         {f.required && <small> *</small>}
                       </span>
                       {f.type === "select" ? (
@@ -3875,7 +4097,9 @@ function App() {
                           }
                         >
                           {f.options?.map((o) => (
-                            <option key={o}>{o}</option>
+                            <option key={o} value={o}>
+                              {o === "manuale" ? t("Manuale") : o}
+                            </option>
                           ))}
                         </select>
                       ) : f.type === "textarea" ? (
@@ -3883,7 +4107,9 @@ function App() {
                           rows={5}
                           required={f.required}
                           value={String(modal.values[f.name] || "")}
-                          placeholder={f.placeholder}
+                          placeholder={
+                            f.placeholder ? t(f.placeholder) : undefined
+                          }
                           onChange={(e) =>
                             setModal({
                               ...modal,
@@ -3924,7 +4150,7 @@ function App() {
                             <button
                               type="button"
                               className="icon-button"
-                              title="Scegli cartella"
+                              title={t("Scegli cartella")}
                               onClick={async () => {
                                 const folder = await invoke<string | null>(
                                   "app.selectDirectory",
@@ -3958,21 +4184,21 @@ function App() {
               <div className="command-preview">
                 <div>
                   <Terminal size={12} />
-                  <span>ANTEPRIMA COMANDO</span>
+                  <span>{t("ANTEPRIMA COMANDO")}</span>
                   <button
                     type="button"
-                    title="Copia comando"
+                    title={t("Copia comando")}
                     onClick={() => {
                       void navigator.clipboard.writeText(
-                        gitCommand(modal.action!.id, modal.values),
+                        gitCommand(modal.action!.id, modal.values, t),
                       );
-                      notify("Comando copiato");
+                      notify("Comando copiato", false, true);
                     }}
                   >
                     <Copy size={12} />
                   </button>
                 </div>
-                <code>{gitCommand(modal.action.id, modal.values)}</code>
+                <code>{gitCommand(modal.action.id, modal.values, t)}</code>
               </div>
             )}
             {modal.action?.id === "discard" && (
@@ -3991,7 +4217,7 @@ function App() {
                 className="secondary"
                 onClick={() => setModal(null)}
               >
-                Annulla
+                {t("Annulla")}
               </button>
               <button
                 className={
@@ -4004,16 +4230,16 @@ function App() {
               >
                 {busy && <LoaderCircle size={15} className="spin" />}
                 {modal.type === "settings"
-                  ? "Salva preferenze"
+                  ? t("Salva preferenze")
                   : modal.type === "clone"
-                    ? "Clona repository"
+                    ? t("Clona repository")
                     : modal.type === "init"
-                      ? "Crea repository"
+                      ? t("Crea repository")
                       : modal.values.confirmForce
-                        ? "Conferma force push"
+                        ? t("Conferma force push")
                         : modal.action?.danger
-                          ? "Conferma operazione"
-                          : "Esegui"}
+                          ? t("Conferma operazione")
+                          : t("Esegui")}
               </button>
             </div>
           </form>
@@ -4032,35 +4258,35 @@ function App() {
               <Search size={20} />
               <input
                 autoFocus
-                placeholder="Cerca un comando, un branch o un repository…"
+                placeholder={t("Cerca un comando, un branch o un repository…")}
                 value={paletteSearch}
                 onChange={(e) => setPaletteSearch(e.target.value)}
               />
               <kbd>ESC</kbd>
             </div>
             <div className="palette-items">
-              <div className="section-label">AZIONI RAPIDE</div>
+              <div className="section-label">{t("AZIONI RAPIDE")}</div>
               {[
                 {
-                  title: "Apri repository",
+                  title: t("Apri repository"),
                   icon: FolderOpen,
                   key: "⌘ O",
                   fn: () => void openRepo(),
                 },
                 {
-                  title: "Esplora demo isolata",
+                  title: t("Esplora demo isolata"),
                   icon: Play,
                   key: "",
                   fn: () => void openDemo(),
                 },
                 {
-                  title: "Crea repository",
+                  title: t("Crea repository"),
                   icon: FolderPlus,
                   key: "",
                   fn: () => setModal({ type: "init", values: { path: "" } }),
                 },
                 {
-                  title: "Clona repository",
+                  title: t("Clona repository"),
                   icon: Download,
                   key: "",
                   fn: () =>
@@ -4070,31 +4296,31 @@ function App() {
                     }),
                 },
                 {
-                  title: "Aggiorna repository",
+                  title: t("Aggiorna repository"),
                   icon: RefreshCw,
                   key: "⌘ R",
                   fn: () => void refresh(),
                 },
                 {
-                  title: "Apri terminale",
+                  title: t("Apri terminale"),
                   icon: Terminal,
                   key: "",
                   fn: () => setTerminal(true),
                 },
                 {
-                  title: "Strumenti · confronto, rebase, patch e AI",
+                  title: t("Strumenti · confronto, rebase, patch e AI"),
                   icon: Code2,
                   key: "",
                   fn: () => setToolsOpen(true),
                 },
                 {
-                  title: "Impostazioni AI · provider e modelli",
+                  title: t("Impostazioni AI · provider e modelli"),
                   icon: SettingsIcon,
                   key: "",
                   fn: () => setAISettingsOpen(true),
                 },
                 {
-                  title: "Profili hosting · account e server Git",
+                  title: t("Profili hosting · account e server Git"),
                   icon: Cloud,
                   key: "",
                   fn: () => setHostingSettingsOpen(true),
@@ -4118,7 +4344,7 @@ function App() {
                 ))}
               {snapshot && (
                 <>
-                  <div className="section-label">OPERAZIONI GIT</div>
+                  <div className="section-label">{t("OPERAZIONI GIT")}</div>
                   {optionItems
                     .filter((a) =>
                       `${a.title} ${a.group} ${a.id}`
@@ -4156,14 +4382,14 @@ function App() {
                         >
                           <GitBranch size={15} />
                           <span>{b.name}</span>
-                          <small>Checkout</small>
+                          <small>{t("Checkout")}</small>
                         </button>
                       ))}
                 </>
               )}
               {!!boot?.repos.length && (
                 <>
-                  <div className="section-label">REPOSITORY</div>
+                  <div className="section-label">{t("REPOSITORY")}</div>
                   {boot.repos
                     .filter((r) =>
                       r.name
@@ -4189,9 +4415,9 @@ function App() {
             <div className="palette-footer">
               <span>
                 <Command size={12} />
-                Tutte le operazioni a portata di tastiera
+                {t("Tutte le operazioni a portata di tastiera")}
               </span>
-              <span>Seleziona un comando</span>
+              <span>{t("Seleziona un comando")}</span>
             </div>
           </div>
         </div>
@@ -4207,12 +4433,12 @@ function App() {
               <h3>{output.title}</h3>
               <button
                 className="icon-button"
-                title="Copia output"
+                title={t("Copia output")}
                 onClick={() => {
                   void navigator.clipboard.writeText(
                     [output.command, output.text].filter(Boolean).join("\n"),
                   );
-                  notify("Output copiato");
+                  notify("Output copiato", false, true);
                 }}
               >
                 <Copy size={15} />
@@ -4230,7 +4456,7 @@ function App() {
             <pre>{output.text}</pre>
             <div className="modal-footer">
               <button className="secondary" onClick={() => setOutput(null)}>
-                Chiudi
+                {t("Chiudi")}
               </button>
             </div>
           </div>
@@ -4269,6 +4495,7 @@ function DiffViewer({
   staged: boolean;
   busy: boolean;
 }) {
+  const { t } = useI18n();
   const hunks = useMemo(() => {
     const lines = text.split("\n");
     const first = lines.findIndex((l) => l.startsWith("@@"));
@@ -4330,8 +4557,8 @@ function DiffViewer({
     return (
       <Empty
         icon={<FileDiff size={29} />}
-        title="Nessuna differenza"
-        text="Questo file non ha modifiche nella selezione corrente."
+        title={t("Nessuna differenza")}
+        text={t("Questo file non ha modifiche nella selezione corrente.")}
       />
     );
   if (!hunks.length) return <pre className="raw-diff">{text}</pre>;
@@ -4370,7 +4597,7 @@ function DiffViewer({
             {onHunk && (
               <button disabled={busy} onClick={() => onHunk(h.patch)}>
                 {staged ? <Minus size={12} /> : <Plus size={12} />}{" "}
-                {staged ? "Unstage hunk" : "Stage hunk"}
+                {staged ? t("Unstage hunk") : t("Stage hunk")}
               </button>
             )}
           </div>

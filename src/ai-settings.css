@@ -71,6 +71,11 @@
   cursor: pointer;
   gap: 6px;
   line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.ai-settings-dialog button > svg {
+  flex-shrink: 0;
 }
 .ai-settings-dialog button:hover:not(:disabled) {
   background: var(--surface-hover);
@@ -220,6 +225,10 @@
   margin-bottom: 22px;
   gap: 15px;
 }
+.ai-profile-heading > div {
+  min-width: 0;
+  flex: 1;
+}
 .ai-section-eyebrow {
   font-size: 8px;
   letter-spacing: 1.3px;
@@ -232,9 +241,9 @@
   font-size: 17px;
   font-weight: 550;
   letter-spacing: -0.3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
   max-width: 450px;
 }
 .ai-active-badge,
@@ -267,6 +276,7 @@
   display: flex;
   gap: 5px;
   align-items: center;
+  flex-wrap: wrap;
 }
 .ai-field > span > small {
   font-size: 9px;
@@ -310,7 +320,7 @@
 }
 .ai-provider-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 21px;
 }
@@ -322,7 +332,8 @@
   gap: 6px;
   min-height: 35px;
   border: 1px solid var(--border);
-  white-space: nowrap;
+  white-space: normal;
+  min-width: 0;
 }
 .ai-provider-grid > button > span {
   flex: 1;
@@ -402,6 +413,7 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 7px;
+  flex-wrap: wrap;
 }
 .ai-model-heading > .ai-field-label {
   margin: 0;
@@ -503,9 +515,12 @@
   border-radius: 7px;
   background: #ef8f990a;
   color: var(--red);
+  flex-wrap: wrap;
 }
 .ai-delete-confirm > div {
-  flex: 1;
+  flex: 1 1 230px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .ai-delete-confirm strong {
   font-size: 11px;
@@ -601,9 +616,12 @@
   gap: 6px;
   font-size: 9px;
   color: var(--muted);
+  line-height: 1.7;
+  min-width: 0;
 }
 .ai-settings-dialog > footer > span > svg {
   color: var(--accent);
+  flex-shrink: 0;
 }
 .ai-settings-dialog > footer > button {
   font-size: 10px;

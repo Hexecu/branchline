@@ -20,6 +20,13 @@ const { ProviderService } = require("./providers.cjs");
 const { AIVault } = require("./ai-vault.cjs");
 const { profilesFromFile } = require("./ai-import.cjs");
 const { createDemo } = require("../scripts/demo.cjs");
+const {
+  LANGUAGES,
+  normalizeLanguage,
+  translate,
+} = require("../locales/runtime.mjs");
+const tr = (key, params) =>
+  translate(store?.settings.language || "en", key, params);
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "branchline",
@@ -50,7 +57,7 @@ const defaults = {
   defaultPath: "",
   identityName: "",
   identityEmail: "",
-  language: "it",
+  language: "en",
 };
 let win, store, storePath, ai, providers;
 let fetching = false;
@@ -95,10 +102,10 @@ async function register(repo) {
 }
 async function allowed(repo) {
   if (typeof repo !== "string")
-    throw new Error("Percorso repository obbligatorio");
+    throw new Error(tr("Percorso repository obbligatorio"));
   const real = await fsp.realpath(repo);
   if (!store.repos.some((r) => r.path === real))
-    throw new Error("Apri prima il repository con il selettore.");
+    throw new Error(tr("Apri prima il repository con il selettore."));
   return real;
 }
 async function importAI(filename, harness = false) {
@@ -109,7 +116,9 @@ async function importAI(filename, harness = false) {
     );
     if (!gateway)
       throw new Error(
-        "La configurazione Harness OS non contiene un gateway LiteLLM con una chiave valida.",
+        tr(
+          "La configurazione Harness OS non contiene un gateway LiteLLM con una chiave valida.",
+        ),
       );
     entries = [
       {
@@ -135,11 +144,11 @@ async function importHarnessAI(sourcePath) {
   let filename = sourcePath;
   if (filename === undefined) {
     const choice = await dialog.showOpenDialog(win, {
-      title: "Seleziona la configurazione Harness OS da importare",
+      title: tr("Seleziona la configurazione Harness OS da importare"),
       properties: ["openFile", "showHiddenFiles"],
       filters: [
-        { name: "Profili JSON e ambiente", extensions: ["json", "env"] },
-        { name: "Tutti i file", extensions: ["*"] },
+        { name: tr("Profili JSON e ambiente"), extensions: ["json", "env"] },
+        { name: tr("Tutti i file"), extensions: ["*"] },
       ],
     });
     if (choice.canceled || !choice.filePaths.length) return ai.settings();
@@ -150,12 +159,12 @@ async function importHarnessAI(sourcePath) {
     !path.isAbsolute(filename) ||
     filename.includes("\0")
   )
-    throw new Error("Seleziona un file locale valido.");
+    throw new Error(tr("Seleziona un file locale valido."));
   return importAI(filename, true);
 }
 async function invoke(method, p = {}) {
   if (!p || typeof p !== "object" || Array.isArray(p))
-    throw new Error("Argomenti non validi");
+    throw new Error(tr("Argomenti non validi"));
   switch (method) {
     case "app.bootstrap":
       return { ...store, version: app.getVersion() };
@@ -185,18 +194,21 @@ async function invoke(method, p = {}) {
       let filename = p.sourcePath;
       if (!filename) {
         const choice = await dialog.showOpenDialog(win, {
-          title: "Importa profili e credenziali AI",
+          title: tr("Importa profili e credenziali AI"),
           properties: ["openFile", "showHiddenFiles"],
           filters: [
-            { name: "Profili JSON e ambiente", extensions: ["json", "env"] },
-            { name: "Tutti i file", extensions: ["*"] },
+            {
+              name: tr("Profili JSON e ambiente"),
+              extensions: ["json", "env"],
+            },
+            { name: tr("Tutti i file"), extensions: ["*"] },
           ],
         });
         if (choice.canceled) return ai.settings();
         filename = choice.filePaths[0];
       }
       if (typeof filename !== "string" || !path.isAbsolute(filename))
-        throw new Error("Seleziona un file locale valido.");
+        throw new Error(tr("Seleziona un file locale valido."));
       return importAI(filename);
     }
     case "app.selectDirectory": {
@@ -212,15 +224,15 @@ async function invoke(method, p = {}) {
     case "app.settings": {
       const s = p.settings || {};
       if (s.theme !== undefined && !["dark", "light"].includes(s.theme))
-        throw new Error("Tema non valido");
+        throw new Error(tr("Tema non valido"));
       if (
         s.fontSize !== undefined &&
         (!Number.isFinite(s.fontSize) || s.fontSize < 11 || s.fontSize > 20)
       )
-        throw new Error("Dimensione carattere: 11–20");
+        throw new Error(tr("Dimensione carattere: 11–20"));
       for (const k of ["autoFetch", "autoStash", "showRemoteBranches"])
         if (s[k] !== undefined && typeof s[k] !== "boolean")
-          throw new Error("Impostazione non valida: " + k);
+          throw new Error(tr("Impostazione non valida: {name}", { name: k }));
       for (const k of [
         "defaultPath",
         "identityName",
@@ -231,10 +243,16 @@ async function invoke(method, p = {}) {
           s[k] !== undefined &&
           (typeof s[k] !== "string" || s[k].length > 4096)
         )
-          throw new Error("Impostazione non valida: " + k);
+          throw new Error(tr("Impostazione non valida: {name}", { name: k }));
+      if (
+        s.language !== undefined &&
+        !LANGUAGES.some((option) => option.code === s.language)
+      )
+        throw new Error(tr("Lingua non supportata"));
       for (const k of Object.keys(defaults))
         if (s[k] !== undefined) store.settings[k] = s[k];
       persist();
+      installMenu();
       return store.settings;
     }
     case "app.reveal": {
@@ -245,7 +263,9 @@ async function invoke(method, p = {}) {
     case "app.external": {
       const url = new URL(p.url);
       if (url.protocol !== "https:" || url.username || url.password)
-        throw new Error("Sono consentiti solo link HTTPS senza credenziali.");
+        throw new Error(
+          tr("Sono consentiti solo link HTTPS senza credenziali."),
+        );
       await shell.openExternal(url.href);
       return;
     }
@@ -265,7 +285,7 @@ async function invoke(method, p = {}) {
       return;
     case "terminal.write": {
       const t = terminals.get(p.id);
-      if (!t) throw new Error("Terminale chiuso");
+      if (!t) throw new Error(tr("Terminale chiuso"));
       t.write(String(p.data));
       return;
     }
@@ -312,7 +332,7 @@ async function invoke(method, p = {}) {
         return {
           available: false,
           models: [],
-          message: "Configura un profilo nelle impostazioni AI.",
+          message: tr("Configura un profilo nelle impostazioni AI."),
         };
       const result = await ai.models(profile.id);
       return { available: true, ...result };
@@ -374,7 +394,7 @@ async function invoke(method, p = {}) {
       return { id };
     }
     default:
-      throw new Error("Metodo non riconosciuto: " + method);
+      throw new Error(tr("Metodo non riconosciuto: {name}", { name: method }));
   }
 }
 function makeWindow() {
@@ -410,6 +430,79 @@ function makeWindow() {
     terminals.clear();
   });
 }
+function installMenu() {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: "Branchline",
+        submenu: [
+          { role: "about", label: tr("Informazioni su Branchline") },
+          { type: "separator" },
+          {
+            label: tr("Impostazioni…"),
+            accelerator: "CmdOrCtrl+,",
+            click: () => emit("app.command", "settings"),
+          },
+          { type: "separator" },
+          { role: "hide", label: tr("Nascondi Branchline") },
+          { role: "hideOthers", label: tr("Nascondi altre applicazioni") },
+          { role: "unhide", label: tr("Mostra tutte") },
+          { type: "separator" },
+          { role: "quit", label: tr("Esci da Branchline") },
+        ],
+      },
+      {
+        label: tr("File"),
+        submenu: [
+          {
+            label: tr("Apri repository…"),
+            accelerator: "CmdOrCtrl+O",
+            click: () => emit("app.command", "open"),
+          },
+          {
+            label: tr("Palette comandi"),
+            accelerator: "CmdOrCtrl+K",
+            click: () => emit("app.command", "palette"),
+          },
+          { type: "separator" },
+          { role: "close", label: tr("Chiudi finestra") },
+        ],
+      },
+      {
+        label: tr("Modifica"),
+        submenu: [
+          { role: "undo", label: tr("Annulla modifica") },
+          { role: "redo", label: tr("Ripeti") },
+          { type: "separator" },
+          { role: "cut", label: tr("Taglia") },
+          { role: "copy", label: tr("Copia") },
+          { role: "paste", label: tr("Incolla") },
+          { role: "selectAll", label: tr("Seleziona tutto") },
+        ],
+      },
+      {
+        label: tr("Vista"),
+        submenu: [
+          { role: "reload", label: tr("Ricarica") },
+          { role: "toggleDevTools", label: tr("Strumenti sviluppatore") },
+          { type: "separator" },
+          { role: "resetZoom", label: tr("Dimensioni effettive") },
+          { role: "zoomIn", label: tr("Ingrandisci") },
+          { role: "zoomOut", label: tr("Riduci") },
+          { role: "togglefullscreen", label: tr("Schermo intero") },
+        ],
+      },
+      {
+        label: tr("Finestra"),
+        submenu: [
+          { role: "minimize", label: tr("Riduci a icona") },
+          { role: "zoom", label: tr("Zoom finestra") },
+          { role: "front", label: tr("Porta tutte in primo piano") },
+        ],
+      },
+    ]),
+  );
+}
 app.whenReady().then(() => {
   storePath = path.join(app.getPath("userData"), "state.json");
   try {
@@ -428,6 +521,7 @@ app.whenReady().then(() => {
     vault: new AIVault({ directory: hostingDirectory, safeStorage }),
   });
   store.settings = { ...defaults, ...store.settings };
+  store.settings.language = normalizeLanguage(store.settings.language);
   store.activity ||= [];
   store.repos ||= [];
   protocol.handle("branchline", (req) => {
@@ -447,7 +541,7 @@ app.whenReady().then(() => {
       event.sender !== win.webContents ||
       event.senderFrame !== win.webContents.mainFrame
     )
-      throw new Error("Origine non autorizzata");
+      throw new Error(tr("Origine non autorizzata"));
     try {
       return await invoke(method, payload);
     } catch (e) {
@@ -462,73 +556,7 @@ app.whenReady().then(() => {
       ),
     ),
   );
-  Menu.setApplicationMenu(
-    Menu.buildFromTemplate([
-      {
-        label: "Branchline",
-        submenu: [
-          { role: "about" },
-          { type: "separator" },
-          {
-            label: "Impostazioni…",
-            accelerator: "CmdOrCtrl+,",
-            click: () => emit("app.command", "settings"),
-          },
-          { type: "separator" },
-          { role: "hide" },
-          { role: "hideOthers" },
-          { role: "unhide" },
-          { type: "separator" },
-          { role: "quit" },
-        ],
-      },
-      {
-        label: "File",
-        submenu: [
-          {
-            label: "Apri repository…",
-            accelerator: "CmdOrCtrl+O",
-            click: () => emit("app.command", "open"),
-          },
-          {
-            label: "Palette comandi",
-            accelerator: "CmdOrCtrl+K",
-            click: () => emit("app.command", "palette"),
-          },
-          { type: "separator" },
-          { role: "close" },
-        ],
-      },
-      {
-        label: "Modifica",
-        submenu: [
-          { role: "undo" },
-          { role: "redo" },
-          { type: "separator" },
-          { role: "cut" },
-          { role: "copy" },
-          { role: "paste" },
-          { role: "selectAll" },
-        ],
-      },
-      {
-        label: "Vista",
-        submenu: [
-          { role: "reload" },
-          { role: "toggleDevTools" },
-          { type: "separator" },
-          { role: "resetZoom" },
-          { role: "zoomIn" },
-          { role: "zoomOut" },
-          { role: "togglefullscreen" },
-        ],
-      },
-      {
-        label: "Finestra",
-        submenu: [{ role: "minimize" }, { role: "zoom" }, { role: "front" }],
-      },
-    ]),
-  );
+  installMenu();
   makeWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) makeWindow();

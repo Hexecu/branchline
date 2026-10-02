@@ -1,6 +1,6 @@
 {
   "name": "branchline",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "A local-first visual Git desktop client",
   "main": "electron/main.cjs",
@@ -11,8 +11,9 @@
     "start": "electron .",
     "test": "node --test tests/*.test.cjs",
     "format": "prettier --write src electron scripts tests vite.config.mts",
-    "package": "npm run build && electron-builder --mac dir",
-    "demo": "node scripts/demo.cjs"
+    "package": "node scripts/package-macos.cjs",
+    "demo": "node scripts/demo.cjs",
+    "release:macos": "node scripts/release-macos.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.1145.0",
@@ -50,16 +51,21 @@
       "package.json",
       "assets/**/*",
       "LICENSE",
-      "THIRD_PARTY_NOTICES.md"
+      "THIRD_PARTY_NOTICES.md",
+      "locales/**/*"
     ],
     "directories": {
       "output": "release"
     },
     "mac": {
       "category": "public.app-category.developer-tools",
-      "identity": null,
-      "icon": "assets/icon.icns"
-    }
+      "identity": "-",
+      "icon": "assets/icon.icns",
+      "hardenedRuntime": true,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist"
+    },
+    "afterPack": "scripts/prepare-signing.cjs"
   },
   "license": "MIT",
   "author": "Davide Leopardi",

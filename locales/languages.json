@@ -1,0 +1,50 @@
+[
+  {
+    "code": "en",
+    "nativeName": "English",
+    "name": "English",
+    "locale": "en-US"
+  },
+  {
+    "code": "it",
+    "nativeName": "Italiano",
+    "name": "Italian",
+    "locale": "it-IT"
+  },
+  {
+    "code": "es",
+    "nativeName": "Español",
+    "name": "Spanish",
+    "locale": "es-ES"
+  },
+  {
+    "code": "fr",
+    "nativeName": "Français",
+    "name": "French",
+    "locale": "fr-FR"
+  },
+  {
+    "code": "de",
+    "nativeName": "Deutsch",
+    "name": "German",
+    "locale": "de-DE"
+  },
+  {
+    "code": "pt-BR",
+    "nativeName": "Português (Brasil)",
+    "name": "Brazilian Portuguese",
+    "locale": "pt-BR"
+  },
+  {
+    "code": "ja",
+    "nativeName": "日本語",
+    "name": "Japanese",
+    "locale": "ja-JP"
+  },
+  {
+    "code": "zh-CN",
+    "nativeName": "简体中文",
+    "name": "Simplified Chinese",
+    "locale": "zh-CN"
+  }
+]

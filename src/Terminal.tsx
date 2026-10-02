@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { X, TerminalSquare } from "lucide-react";
+import { useI18n } from "./i18n";
 import "@xterm/xterm/css/xterm.css";
 export default function TerminalPanel({
   path,
@@ -10,6 +11,9 @@ export default function TerminalPanel({
   path: string;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
+  const translation = useRef(t);
+  translation.current = t;
   const mount = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -40,7 +44,13 @@ export default function TerminalPanel({
     });
     const offExit = window.branchline.on("terminal.exit", (p) => {
       if (p.id === id)
-        term.writeln("\r\n\x1b[90mSessione terminata (" + p.code + ").\x1b[0m");
+        term.writeln(
+          "\r\n\x1b[90m" +
+            translation.current("Sessione terminata ({code}).", {
+              code: String(p.code ?? "—"),
+            }) +
+            "\x1b[0m",
+        );
     });
     const data = term.onData((text) => {
       if (id)
@@ -107,9 +117,18 @@ export default function TerminalPanel({
         }}
       >
         <TerminalSquare size={14} />
-        <strong>Terminale</strong>
-        <span style={{ opacity: 0.5, flex: 1 }}>{path}</span>
-        <button onClick={onClose} aria-label="Chiudi terminale">
+        <strong>{t("Terminale")}</strong>
+        <span
+          style={{
+            opacity: 0.5,
+            flex: 1,
+            minWidth: 0,
+            overflowWrap: "anywhere",
+          }}
+        >
+          {path}
+        </span>
+        <button onClick={onClose} aria-label={t("Chiudi terminale")}>
           <X size={15} />
         </button>
       </header>

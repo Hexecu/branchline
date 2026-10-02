@@ -1,0 +1,143 @@
+/* International UI text wraps; repository content and monospace output retain
+   their existing rendering rules. CJK fonts are installed-system fallbacks. */
+:root {
+  font-family:
+    "DM Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Noto Sans",
+    "Noto Sans JP",
+    "Noto Sans CJK SC",
+    "Hiragino Sans",
+    "Yu Gothic UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+}
+:lang(ja) {
+  line-break: strict;
+}
+:root:lang(ja) {
+  font-family:
+    "DM Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Hiragino Sans",
+    "Yu Gothic UI",
+    "Noto Sans JP",
+    "Segoe UI",
+    sans-serif;
+}
+:lang(zh-CN) {
+  line-break: auto;
+}
+:root:lang(zh-CN) {
+  font-family:
+    "DM Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "PingFang SC",
+    "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    "Noto Sans SC",
+    "Segoe UI",
+    sans-serif;
+}
+:is(button, label, .eyebrow, .page-heading h2, .modal-title, .fineprint) {
+  overflow-wrap: anywhere;
+}
+.language-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  gap: 8px;
+}
+.language-selector button {
+  min-height: 42px;
+  white-space: normal;
+  text-align: start;
+}
+.language-selector button[aria-pressed="true"] {
+  border-color: var(--accent, #58d6bc);
+}
+.language-selector button:focus-visible {
+  outline: 2px solid var(--accent, #58d6bc);
+  outline-offset: 3px;
+}
+.language-selector small {
+  display: block;
+  opacity: 0.7;
+}
+.window-tools .locale-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  padding-inline: 9px;
+}
+.settings-language-card {
+  padding: 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+.settings-language-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-language-card select {
+  width: 100%;
+  min-height: 36px;
+  font-family: inherit;
+}
+.settings-language-card p {
+  color: var(--secondary);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 9px 0 0;
+}
+.settings-ai-entry {
+  flex-wrap: wrap;
+}
+.settings-ai-entry > div {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.settings-ai-entry > button {
+  max-width: 100%;
+  white-space: normal;
+}
+:is(
+  .hosting-save-row,
+  .ai-save-row,
+  .dialog-actions,
+  .modal-footer,
+  .tools-tabs
+) {
+  flex-wrap: wrap;
+}
+:is(.hosting-field, .ai-field, .settings-field) {
+  min-width: 0;
+}
+:is(.hosting-field, .ai-field, .settings-field) > :is(span, small) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .language-selector {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.context-menu > button {
+  white-space: normal;
+  align-items: center;
+  line-height: 1.4;
+}
+.context-menu > button > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}

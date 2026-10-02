@@ -10,8 +10,10 @@ const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 
 // Compile the actual components in memory: no browser mock or generated files.
+const components = new Map();
 function component(name) {
   const filename = path.join(__dirname, "..", "src", name);
+  if (components.has(filename)) return components.get(filename).exports;
   const compiled = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
@@ -24,6 +26,10 @@ function component(name) {
   const loaded = new Module(filename, module);
   loaded.filename = filename;
   loaded.paths = Module._nodeModulePaths(path.dirname(filename));
+  components.set(filename, loaded);
+  const nativeRequire = loaded.require.bind(loaded);
+  loaded.require = (request) =>
+    request === "./i18n" ? component("i18n.tsx") : nativeRequire(request);
   loaded._compile(compiled, filename);
   return loaded.exports;
 }
@@ -31,10 +37,11 @@ function component(name) {
 const { default: CommitMarkdown, displayCommitText } =
   component("CommitText.tsx");
 const { default: Graph } = component("Graph.tsx");
+const { I18nProvider } = component("i18n.tsx");
+const render = (node) =>
+  renderToStaticMarkup(React.createElement(I18nProvider, null, node));
 const markdown = (text) =>
-  renderToStaticMarkup(
-    React.createElement(CommitMarkdown, { text, onOpenLink() {} }),
-  );
+  render(React.createElement(CommitMarkdown, { text, onOpenLink() {} }));
 
 test("commit Markdown escapes repository HTML, excludes images and rejects unsafe link targets", () => {
   const rendered = markdown(
@@ -104,7 +111,7 @@ test("variable graph row heights align nodes, merge parents, selected halo and c
       parents: ["outside"],
     },
   ];
-  const rendered = renderToStaticMarkup(
+  const rendered = render(
     React.createElement(Graph, {
       commits,
       selected: "left",

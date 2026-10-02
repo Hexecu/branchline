@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Copy } from "lucide-react";
+import { useI18n } from "./i18n";
 const emojiAliases: Record<string, string> = {
   arrow_up: "⬆️",
   arrow_down: "⬇️",
@@ -163,12 +164,14 @@ export default function CommitMarkdown({
   onOpenLink: (url: string) => void;
   onCopy?: (text: string) => void;
 }) {
+  const { t, language } = useI18n();
   const blocks = useMemo(() => {
     if (text.length > 200000)
       return [
         <p key="large-note" className="markdown-large-note">
-          Messaggio molto esteso: mostrato come testo originale per mantenere
-          l’interfaccia reattiva.
+          {t(
+            "Messaggio molto esteso: mostrato come testo originale per mantenere l’interfaccia reattiva.",
+          )}
         </p>,
         <pre key="large-text" className="commit-message-raw">
           {text}
@@ -198,9 +201,9 @@ export default function CommitMarkdown({
         nodes.push(
           <div className="commit-code-block" key={start}>
             <div>
-              <span>{fence[2] || "code"}</span>
+              <span>{fence[2] || t("Codice")}</span>
               {onCopy && (
-                <button title="Copia codice" onClick={() => onCopy(code)}>
+                <button title={t("Copia codice")} onClick={() => onCopy(code)}>
                   <Copy size={12} />
                 </button>
               )}
@@ -289,6 +292,6 @@ export default function CommitMarkdown({
       nodes.push(<p key={start}>{inline(paragraph.join("\n"), onOpenLink)}</p>);
     }
     return nodes;
-  }, [text, onOpenLink, onCopy]);
+  }, [text, onOpenLink, onCopy, t, language]);
   return <div className="commit-markdown">{blocks}</div>;
 }

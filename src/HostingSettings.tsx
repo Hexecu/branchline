@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import type { Snapshot } from "./types";
 import "./hosting-settings.css";
+import { useI18n } from "./i18n";
 
 export type HostingProvider =
   | "github"
@@ -153,6 +154,7 @@ export default function HostingSettings({
   onClose: () => void;
   onSaved?: () => void;
 }) {
+  const { t } = useI18n();
   const [configuration, setConfiguration] =
       useState<HostingConfiguration>(emptyConfiguration),
     [draft, setDraft] = useState<HostingProfile | null>(null),
@@ -162,7 +164,10 @@ export default function HostingSettings({
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [notice, setNotice] = useState(""),
+    [notice, setNotice] = useState<{
+      key: string;
+      params?: Record<string, string | number>;
+    } | null>(null),
     [test, setTest] = useState<HostingStatus | null>(null),
     [removeId, setRemoveId] = useState<string | null>(null),
     [discardTarget, setDiscardTarget] = useState<
@@ -213,7 +218,7 @@ export default function HostingSettings({
     );
     setCredential("");
     setError("");
-    setNotice("");
+    setNotice(null);
     setTest(null);
     setRemoveId(null);
   };
@@ -236,14 +241,14 @@ export default function HostingSettings({
     if (!draft) return;
     setDraft({ ...draft, ...changes });
     setError("");
-    setNotice("");
+    setNotice(null);
     setTest(null);
   };
   const save = async () => {
     if (!draft || !draft.name.trim() || !draft.baseUrl.trim()) return;
     setBusy(true);
     setError("");
-    setNotice("");
+    setNotice(null);
     try {
       const credentials = credential
         ? {
@@ -266,9 +271,9 @@ export default function HostingSettings({
       );
       setCredential("");
       setTest(null);
-      setNotice(
-        "Profilo salvato. Le credenziali restano cifrate sul computer.",
-      );
+      setNotice({
+        key: "Profilo salvato. Le credenziali restano cifrate sul computer.",
+      });
       onSaved?.();
     } catch (e) {
       if (active.current) setError(describeError(e));
@@ -291,9 +296,9 @@ export default function HostingSettings({
       setRemoveId(null);
       setTest(null);
       if (bindingProfile === removeId) setBindingProfile(null);
-      setNotice(
-        "Profilo e credenziali eliminati. I remote Git non sono stati modificati.",
-      );
+      setNotice({
+        key: "Profilo e credenziali eliminati. I remote Git non sono stati modificati.",
+      });
       onSaved?.();
     } catch (e) {
       if (active.current) setError(describeError(e));
@@ -305,7 +310,7 @@ export default function HostingSettings({
     if (!snapshot || !remote) return;
     setBusy(true);
     setError("");
-    setNotice("");
+    setNotice(null);
     try {
       const data = await invoke<HostingConfiguration>("provider.bind", {
         path: snapshot.path,
@@ -314,9 +319,10 @@ export default function HostingSettings({
       });
       if (!active.current) return;
       setConfiguration(data);
-      setNotice(
-        `Associazione salvata per ${snapshot.name} · ${remote}. Il remote Git rimane invariato.`,
-      );
+      setNotice({
+        key: "Associazione salvata per {name} · {remote}. Il remote Git rimane invariato.",
+        params: { name: snapshot.name, remote },
+      });
       onSaved?.();
     } catch (e) {
       if (active.current) setError(describeError(e));
@@ -328,7 +334,7 @@ export default function HostingSettings({
     if (!snapshot || !remote || !draft || dirty) return;
     setBusy(true);
     setError("");
-    setNotice("");
+    setNotice(null);
     setTest(null);
     try {
       const result = await invoke<HostingStatus>("provider.test", {
@@ -370,13 +376,15 @@ export default function HostingSettings({
             <Server size={25} />
           </span>
           <div>
-            <div className="eyebrow">REPOSITORY E ACCOUNT</div>
-            <h2 id="hosting-settings-title">Profili hosting</h2>
-            <p>Servizi pubblici, server aziendali e credenziali protette.</p>
+            <div className="eyebrow">{t("REPOSITORY E ACCOUNT")}</div>
+            <h2 id="hosting-settings-title">{t("Profili hosting")}</h2>
+            <p>
+              {t("Servizi pubblici, server aziendali e credenziali protette.")}
+            </p>
           </div>
           <button
             className="icon-button"
-            aria-label="Chiudi profili hosting"
+            aria-label={t("Chiudi profili hosting")}
             onClick={() => requestSelect("close")}
             disabled={busy}
           >
@@ -386,11 +394,11 @@ export default function HostingSettings({
         <div className="hosting-workspace">
           <aside className="hosting-profile-list">
             <div className="hosting-list-heading">
-              <span>PROFILI</span>
+              <span>{t("PROFILI")}</span>
               <button
                 onClick={() => requestSelect("new")}
                 disabled={busy || loading}
-                aria-label="Aggiungi profilo hosting"
+                aria-label={t("Aggiungi profilo hosting")}
               >
                 <Plus size={17} />
               </button>
@@ -416,15 +424,17 @@ export default function HostingSettings({
             ))}
             {!configuration.profiles.length && !loading && (
               <p className="hosting-list-note">
-                Aggiungi un profilo per il tuo account o server. GitHub può
-                usare anche GitHub CLI.
+                {t(
+                  "Aggiungi un profilo per il tuo account o server. GitHub può usare anche GitHub CLI.",
+                )}
               </p>
             )}
             <div className="hosting-privacy-note">
               <ShieldCheck size={16} />
               <p>
-                I profili contengono metadati. Le chiavi sono cifrate
-                separatamente e non vengono restituite all’interfaccia.
+                {t(
+                  "I profili contengono metadati. Le chiavi sono cifrate separatamente e non vengono restituite all’interfaccia.",
+                )}
               </p>
             </div>
           </aside>
@@ -432,14 +442,16 @@ export default function HostingSettings({
             {loading ? (
               <div className="loading-state">
                 <LoaderCircle className="spin" size={22} />
-                Caricamento profili…
+                {t("Caricamento profili…")}
               </div>
             ) : draft ? (
               <>
                 <div className="hosting-editor-heading">
                   <div>
-                    <h3>{draft.name || "Nuovo profilo"}</h3>
-                    <p>{dirty ? "Modifiche da salvare" : "Profilo salvato"}</p>
+                    <h3>{draft.name || t("Nuovo profilo")}</h3>
+                    <p>
+                      {dirty ? t("Modifiche da salvare") : t("Profilo salvato")}
+                    </p>
                   </div>
                   {savedProfile && (
                     <button
@@ -448,21 +460,21 @@ export default function HostingSettings({
                       onClick={() => setRemoveId(draft.id)}
                     >
                       <Trash2 size={14} />
-                      Elimina
+                      {t("Elimina")}
                     </button>
                   )}
                 </div>
                 <label className="hosting-field">
-                  <span>Nome del profilo</span>
+                  <span>{t("Nome del profilo")}</span>
                   <input
                     value={draft.name}
                     disabled={busy}
-                    placeholder="Account personale o server aziendale"
+                    placeholder={t("Account personale o server aziendale")}
                     onChange={(event) => update({ name: event.target.value })}
                   />
                 </label>
                 <div className="hosting-field">
-                  <span>Provider</span>
+                  <span>{t("Provider")}</span>
                   <div className="hosting-provider-options">
                     {hostingProviders.map((item) => (
                       <button
@@ -487,7 +499,7 @@ export default function HostingSettings({
                   </div>
                 </div>
                 <label className="hosting-field">
-                  <span>URL server / organizzazione</span>
+                  <span>{t("URL server / organizzazione")}</span>
                   <input
                     value={draft.baseUrl}
                     disabled={busy}
@@ -501,30 +513,31 @@ export default function HostingSettings({
                     }
                   />
                   <small>
-                    HTTPS, incluso l’eventuale prefisso del server. Gli endpoint
-                    API dipendono dal provider. Per Azure indica
-                    l’organizzazione o la collection.
+                    {t(
+                      "HTTPS, incluso l’eventuale prefisso del server. Gli endpoint API dipendono dal provider. Per Azure indica l’organizzazione o la collection.",
+                    )}
                   </small>
                 </label>
                 {draft.provider === "azure-devops" && (
                   <label className="hosting-field">
-                    <span>Versione API Azure</span>
+                    <span>{t("Versione API Azure")}</span>
                     <input
                       value={draft.apiVersion || ""}
                       disabled={busy}
-                      placeholder="Facoltativa · predefinita 7.1"
+                      placeholder={t("Facoltativa · predefinita 7.1")}
                       onChange={(event) =>
                         update({ apiVersion: event.target.value })
                       }
                     />
                     <small>
-                      Per Azure DevOps Server usa una versione supportata dalla
-                      tua installazione.
+                      {t(
+                        "Per Azure DevOps Server usa una versione supportata dalla tua installazione.",
+                      )}
                     </small>
                   </label>
                 )}
                 <div className="hosting-field">
-                  <span>Autenticazione</span>
+                  <span>{t("Autenticazione")}</span>
                   <div className="hosting-auth-options">
                     {provider?.modes.map((mode) => (
                       <button
@@ -537,7 +550,7 @@ export default function HostingSettings({
                           setCredential("");
                         }}
                       >
-                        {authNames[mode]}
+                        {t(authNames[mode])}
                       </button>
                     ))}
                   </div>
@@ -546,20 +559,22 @@ export default function HostingSettings({
                   <div className="hosting-inline-note">
                     <Cloud size={16} />
                     <p>
-                      Legge i repository pubblici senza inviare una credenziale.
-                      Il servizio può applicare limiti più stretti; i repository
-                      privati richiedono un’altra modalità.
+                      {t(
+                        "Legge i repository pubblici senza inviare una credenziale. Il servizio può applicare limiti più stretti; i repository privati richiedono un’altra modalità.",
+                      )}
                     </p>
                   </div>
                 ) : draft.authMode === "gh" ? (
                   <div className="hosting-inline-note">
                     <Link2 size={16} />
-                    <p>
-                      Usa l’accesso di GitHub CLI per il server selezionato.
-                      Configuralo dal terminale con{" "}
-                      <code>gh auth login --hostname HOST</code>. Branchline non
-                      legge né mostra i token salvati da gh.
-                    </p>
+                    <div>
+                      <p>
+                        {t(
+                          "Usa l’accesso di GitHub CLI per il server selezionato. Configuralo dal terminale con il comando seguente. Branchline non legge né mostra i token salvati da gh.",
+                        )}
+                      </p>
+                      <code>gh auth login --hostname HOST</code>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -567,8 +582,8 @@ export default function HostingSettings({
                       <label className="hosting-field">
                         <span>
                           {draft.provider === "bitbucket-cloud"
-                            ? "Email dell’account"
-                            : "Utente / account"}
+                            ? t("Email dell’account")
+                            : t("Utente / account")}
                         </span>
                         <input
                           value={draft.username || ""}
@@ -576,10 +591,10 @@ export default function HostingSettings({
                           autoComplete="off"
                           placeholder={
                             draft.provider === "azure-devops"
-                              ? "Facoltativo per PAT Azure"
+                              ? t("Facoltativo per PAT Azure")
                               : draft.provider === "bitbucket-cloud"
-                                ? "Email associata all’API token"
-                                : "Nome account richiesto dal server"
+                                ? t("Email associata all’API token")
+                                : t("Nome account richiesto dal server")
                           }
                           onChange={(event) =>
                             update({ username: event.target.value })
@@ -592,13 +607,13 @@ export default function HostingSettings({
                         <KeyRound size={13} />
                         {draft.authMode === "bearer"
                           ? draft.provider === "bitbucket-cloud"
-                            ? "API token / OAuth / access token"
-                            : "Bearer token"
+                            ? t("API token / OAuth / access token")
+                            : t("Bearer token")
                           : draft.provider === "azure-devops"
-                            ? "Personal access token (PAT)"
-                            : "Token / API key"}
+                            ? t("Personal access token (PAT)")
+                            : t("Token / API key")}
                         {draft.hasCredential && (
-                          <em>Credenziale già salvata</em>
+                          <em>{t("Credenziale già salvata")}</em>
                         )}
                       </span>
                       <input
@@ -609,20 +624,21 @@ export default function HostingSettings({
                         spellCheck={false}
                         placeholder={
                           draft.hasCredential
-                            ? "Lascia vuoto per conservare la credenziale"
-                            : "Inserisci la credenziale del provider"
+                            ? t("Lascia vuoto per conservare la credenziale")
+                            : t("Inserisci la credenziale del provider")
                         }
                         onChange={(event) => {
                           setCredential(event.target.value);
                           setTest(null);
-                          setNotice("");
+                          setNotice(null);
                         }}
                       />
                       <small>
-                        Valore usato solo al salvataggio. I segreti salvati non
-                        vengono mostrati, nemmeno parzialmente.
+                        {t(
+                          "Valore usato solo al salvataggio. I segreti salvati non vengono mostrati, nemmeno parzialmente.",
+                        )}
                         {draft.provider === "bitbucket-cloud"
-                          ? " Usa API token, non app password."
+                          ? ` ${t("Usa API token, non app password.")}`
                           : ""}
                       </small>
                     </label>
@@ -640,19 +656,21 @@ export default function HostingSettings({
                     onClick={() => void save()}
                   >
                     <Check size={15} />
-                    Salva profilo
+                    {t("Salva profilo")}
                   </button>
                   <button
                     disabled={busy || dirty || !snapshot || !remote}
                     title={
                       dirty
-                        ? "Salva il profilo prima del test"
-                        : "Richiesta in sola lettura al repository del remote selezionato"
+                        ? t("Salva il profilo prima del test")
+                        : t(
+                            "Richiesta in sola lettura al repository del remote selezionato",
+                          )
                     }
                     onClick={() => void testConnection()}
                   >
                     <RefreshCw size={14} />
-                    Test connessione
+                    {t("Test connessione")}
                   </button>
                 </div>
                 {test && (
@@ -664,8 +682,8 @@ export default function HostingSettings({
                     <div>
                       <strong>
                         {test.authenticated
-                          ? "Repository raggiungibile"
-                          : "Accesso da verificare"}
+                          ? t("Repository raggiungibile")
+                          : t("Accesso da verificare")}
                       </strong>
                       <p>{test.message}</p>
                       <small>
@@ -678,28 +696,30 @@ export default function HostingSettings({
             ) : (
               <div className="hosting-empty">
                 <Server size={34} />
-                <h3>Connetti il tuo hosting Git</h3>
+                <h3>{t("Connetti il tuo hosting Git")}</h3>
                 <p>
-                  Aggiungi un account pubblico o il tuo server aziendale. I
-                  comandi Git locali e i remote funzionano anche senza questi
-                  profili.
+                  {t(
+                    "Aggiungi un account pubblico o il tuo server aziendale. I comandi Git locali e i remote funzionano anche senza questi profili.",
+                  )}
                 </p>
                 <button
                   className="hosting-primary"
                   onClick={() => requestSelect("new")}
                 >
                   <Plus size={15} />
-                  Aggiungi profilo
+                  {t("Aggiungi profilo")}
                 </button>
               </div>
             )}
             {snapshot && (
               <section className="hosting-binding">
                 <div>
-                  <h3>Associa al repository</h3>
+                  <h3>{t("Associa al repository")}</h3>
                   <p>
-                    {snapshot.name} · seleziona il remote e il profilo. Non
-                    modifica gli URL Git.
+                    {t(
+                      "{name} · seleziona il remote e il profilo. Non modifica gli URL Git.",
+                      { name: snapshot.name },
+                    )}
                   </p>
                 </div>
                 {snapshot.remotes.length ? (
@@ -707,7 +727,7 @@ export default function HostingSettings({
                     <div
                       className="hosting-remote-options"
                       role="group"
-                      aria-label="Remote per associazione"
+                      aria-label={t("Remote per associazione")}
                     >
                       {snapshot.remotes.map((item) => (
                         <button
@@ -725,14 +745,14 @@ export default function HostingSettings({
                     <div
                       className="hosting-binding-options"
                       role="group"
-                      aria-label="Profilo per associazione"
+                      aria-label={t("Profilo per associazione")}
                     >
                       <button
                         disabled={busy}
                         className={!bindingProfile ? "active" : ""}
                         onClick={() => setBindingProfile(null)}
                       >
-                        Automatico / GitHub CLI
+                        {t("Automatico / GitHub CLI")}
                       </button>
                       {configuration.profiles.map((profile) => (
                         <button
@@ -752,18 +772,19 @@ export default function HostingSettings({
                       onClick={() => void bind()}
                     >
                       <Link2 size={14} />
-                      Salva associazione
+                      {t("Salva associazione")}
                     </button>
                     <small>
-                      Il test usa il profilo aperto sopra e il remote
-                      selezionato. L’associazione determina il profilo usato
-                      nella pagina Integrazioni.
+                      {t(
+                        "Il test usa il profilo aperto sopra e il remote selezionato. L’associazione determina il profilo usato nella pagina Integrazioni.",
+                      )}
                     </small>
                   </>
                 ) : (
                   <p>
-                    Nessun remote configurato. Aggiungilo dal menu Operazioni
-                    Git prima di collegare un hosting.
+                    {t(
+                      "Nessun remote configurato. Aggiungilo dal menu Operazioni Git prima di collegare un hosting.",
+                    )}
                   </p>
                 )}
               </section>
@@ -777,7 +798,7 @@ export default function HostingSettings({
             {notice && (
               <div className="hosting-notice" role="status">
                 <Check size={16} />
-                <p>{notice}</p>
+                <p>{t(notice.key, notice.params)}</p>
               </div>
             )}
           </main>
@@ -785,32 +806,34 @@ export default function HostingSettings({
         <footer>
           <span>
             <ShieldCheck size={13} />
-            Le integrazioni leggono PR e issue; Git usa la propria
-            autenticazione.
+            {t(
+              "Le integrazioni leggono PR e issue; Git usa la propria autenticazione.",
+            )}
           </span>
           <button disabled={busy} onClick={() => requestSelect("close")}>
-            Chiudi
+            {t("Chiudi")}
           </button>
         </footer>
         {removeId && (
           <div className="hosting-confirm-overlay">
             <div role="alertdialog" aria-modal="true">
               <Trash2 size={23} />
-              <h3>Eliminare questo profilo?</h3>
+              <h3>{t("Eliminare questo profilo?")}</h3>
               <p>
-                Rimuove il profilo, le sue credenziali e le associazioni
-                salvate. Il repository e i remote Git restano invariati.
+                {t(
+                  "Rimuove il profilo, le sue credenziali e le associazioni salvate. Il repository e i remote Git restano invariati.",
+                )}
               </p>
               <div>
                 <button disabled={busy} onClick={() => setRemoveId(null)}>
-                  Annulla
+                  {t("Annulla")}
                 </button>
                 <button
                   className="hosting-danger"
                   disabled={busy}
                   onClick={() => void remove()}
                 >
-                  Elimina profilo
+                  {t("Elimina profilo")}
                 </button>
               </div>
             </div>
@@ -820,14 +843,15 @@ export default function HostingSettings({
           <div className="hosting-confirm-overlay">
             <div role="alertdialog" aria-modal="true">
               <AlertTriangle size={23} />
-              <h3>Modifiche non salvate</h3>
+              <h3>{t("Modifiche non salvate")}</h3>
               <p>
-                Il profilo contiene modifiche o una nuova credenziale. Salva
-                prima di passare a un altro profilo.
+                {t(
+                  "Il profilo contiene modifiche o una nuova credenziale. Salva prima di passare a un altro profilo.",
+                )}
               </p>
               <div>
                 <button onClick={() => setDiscardTarget(null)}>
-                  Torna al profilo
+                  {t("Torna al profilo")}
                 </button>
                 <button
                   onClick={() => {
@@ -836,7 +860,7 @@ export default function HostingSettings({
                     selectDraft(target);
                   }}
                 >
-                  Scarta modifiche
+                  {t("Scarta modifiche")}
                 </button>
               </div>
             </div>
@@ -856,6 +880,7 @@ export function HostingIntegration({
   revision: number;
   onOpenSettings: () => void;
 }) {
+  const { t, formatNumber } = useI18n();
   const [remote, setRemote] = useState<string | undefined>(),
     [status, setStatus] = useState<HostingStatus | null>(null),
     [prs, setPrs] = useState<HostingItem[]>([]),
@@ -914,7 +939,7 @@ export function HostingIntegration({
   }, [snapshot.path, remote, revision, reload]);
   const providerName =
     hostingProviders.find((provider) => provider.id === status?.provider)
-      ?.name || "Hosting Git";
+      ?.name || t("Hosting Git");
   const selectedError = error || listErrors[tab];
   const items = tab === "prs" ? prs : issues;
   const capable = status?.capabilities?.[tab] !== false;
@@ -922,21 +947,21 @@ export function HostingIntegration({
     <div className="integrations-view hosting-integration">
       <div className="page-heading">
         <div>
-          <div className="eyebrow">DAL REPOSITORY AL TEAM</div>
+          <div className="eyebrow">{t("DAL REPOSITORY AL TEAM")}</div>
           <h2>{providerName}</h2>
           <p>
             {status?.host
               ? `${status.host} · ${status.repository || ""}`
-              : "Pull request e issue del remote selezionato."}
+              : t("Pull request e issue del remote selezionato.")}
           </p>
         </div>
         <button className="secondary" onClick={onOpenSettings}>
           <Server size={16} />
-          Profili hosting
+          {t("Profili hosting")}
         </button>
       </div>
       <div className="hosting-integration-remotes">
-        <span>REMOTE</span>
+        <span>{t("REMOTE")}</span>
         {snapshot.remotes.map((item) => (
           <button
             key={item.name}
@@ -953,7 +978,7 @@ export function HostingIntegration({
         ))}
         <button
           className="icon-button"
-          title="Ricarica integrazione"
+          title={t("Ricarica integrazione")}
           onClick={() => setReload((value) => value + 1)}
         >
           <RefreshCw size={15} />
@@ -963,17 +988,17 @@ export function HostingIntegration({
         <div className="provider-error" role="alert">
           <AlertTriangle size={16} />
           <div>
-            <strong>Connessione non disponibile</strong>
+            <strong>{t("Connessione non disponibile")}</strong>
             <pre>{error}</pre>
             <button onClick={() => setReload((value) => value + 1)}>
-              Riprova
+              {t("Riprova")}
             </button>
           </div>
         </div>
       ) : !status ? (
         <div className="loading-state">
           <LoaderCircle className="spin" size={22} />
-          Verifica della connessione…
+          {t("Verifica della connessione…")}
         </div>
       ) : !status.authenticated ? (
         <div className="provider-connect">
@@ -981,30 +1006,31 @@ export function HostingIntegration({
             <Server size={28} />
             <h3>
               {status.provider
-                ? "Configura l’accesso all’hosting"
-                : "Scegli remote e provider"}
+                ? t("Configura l’accesso all’hosting")
+                : t("Scegli remote e provider")}
             </h3>
             <p>{status.message}</p>
           </div>
           <button className="secondary" onClick={onOpenSettings}>
             <KeyRound size={15} />
-            Configura profili e associazioni
+            {t("Configura profili e associazioni")}
           </button>
           <p className="fineprint">
-            I comandi Git e i remote generici restano disponibili. Questa
-            integrazione usa le API del servizio per leggere PR e issue.
+            {t(
+              "I comandi Git e i remote generici restano disponibili. Questa integrazione usa le API del servizio per leggere PR e issue.",
+            )}
           </p>
         </div>
       ) : (
         <>
           <div className="provider-connected">
             <span className="status-dot" />
-            {providerName} collegato
+            {t("{provider} collegato", { provider: providerName })}
             <span>
               {status.remote} ·{" "}
               {status.profileId
-                ? "Profilo configurato"
-                : "Accesso disponibile sul computer"}
+                ? t("Profilo configurato")
+                : t("Accesso disponibile sul computer")}
             </span>
           </div>
           <div className="integration-tabs">
@@ -1013,21 +1039,23 @@ export function HostingIntegration({
               onClick={() => setTab("prs")}
             >
               <GitPullRequest size={15} />
-              {status.provider === "gitlab" ? "Merge request" : "Pull request"}
-              <span>{loadingLists ? "…" : prs.length}</span>
+              {status.provider === "gitlab"
+                ? t("Merge request")
+                : t("Pull request")}
+              <span>{loadingLists ? "…" : formatNumber(prs.length)}</span>
             </button>
             <button
               className={tab === "issues" ? "active" : ""}
               onClick={() => setTab("issues")}
             >
               <Inbox size={15} />
-              {status.provider === "azure-devops" ? "Work item" : "Issue"}
+              {status.provider === "azure-devops" ? t("Work item") : t("Issue")}
               <span>
                 {status.capabilities?.issues === false
                   ? "—"
                   : loadingLists
                     ? "…"
-                    : issues.length}
+                    : formatNumber(issues.length)}
               </span>
             </button>
           </div>
@@ -1036,12 +1064,13 @@ export function HostingIntegration({
               <Inbox size={29} />
               <h3>
                 {tab === "issues"
-                  ? "Issue non disponibili per questo hosting"
-                  : "Pull request non disponibili"}
+                  ? t("Issue non disponibili per questo hosting")
+                  : t("Pull request non disponibili")}
               </h3>
               <p>
-                L’adapter non espone questa funzione. Puoi usare le funzionalità
-                supportate dal servizio e i comandi Git.
+                {t(
+                  "L’adapter non espone questa funzione. Puoi usare le funzionalità supportate dal servizio e i comandi Git.",
+                )}
               </p>
             </div>
           ) : selectedError ? (
@@ -1049,19 +1078,20 @@ export function HostingIntegration({
               <AlertTriangle size={16} />
               <div>
                 <strong>
-                  Impossibile caricare{" "}
-                  {tab === "prs" ? "le richieste" : "le issue"}
+                  {tab === "prs"
+                    ? t("Impossibile caricare le richieste")
+                    : t("Impossibile caricare le issue")}
                 </strong>
                 <pre>{selectedError}</pre>
                 <button onClick={() => setReload((value) => value + 1)}>
-                  Riprova
+                  {t("Riprova")}
                 </button>
               </div>
             </div>
           ) : loadingLists ? (
             <div className="loading-state">
               <LoaderCircle className="spin" size={22} />
-              Caricamento elementi…
+              {t("Caricamento elementi…")}
             </div>
           ) : items.length ? (
             items.map((item) => (
@@ -1086,7 +1116,7 @@ export function HostingIntegration({
                     {item.state?.toLowerCase() || ""}
                   </span>
                 </div>
-                {item.isDraft && <span className="badge">Bozza</span>}
+                {item.isDraft && <span className="badge">{t("Bozza")}</span>}
                 <ExternalLink size={14} />
               </button>
             ))
@@ -1095,12 +1125,13 @@ export function HostingIntegration({
               <Check size={29} />
               <h3>
                 {tab === "prs"
-                  ? "Nessuna richiesta aperta"
-                  : "Nessuna issue aperta"}
+                  ? t("Nessuna richiesta aperta")
+                  : t("Nessuna issue aperta")}
               </h3>
               <p>
-                La lettura del repository selezionato non ha restituito elementi
-                aperti.
+                {t(
+                  "La lettura del repository selezionato non ha restituito elementi aperti.",
+                )}
               </p>
             </div>
           )}

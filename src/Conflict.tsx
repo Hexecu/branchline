@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, GitMerge, ArrowDown, Check, LoaderCircle } from "lucide-react";
 import type { Snapshot } from "./types";
+import { useI18n } from "./i18n";
 import "./conflict.css";
 export default function ConflictPanel({
   snapshot,
@@ -13,6 +14,7 @@ export default function ConflictPanel({
   onClose: () => void;
   onResolved: () => void;
 }) {
+  const { t, formatNumber } = useI18n();
   const [versions, setVersions] = useState<{
       base: string;
       ours: string;
@@ -28,7 +30,8 @@ export default function ConflictPanel({
     [content, setContent] = useState(""),
     [remove, setRemove] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [validationError, setValidationError] = useState(false);
   useEffect(() => {
     let active = true;
     window.branchline
@@ -39,7 +42,12 @@ export default function ConflictPanel({
           setContent(v.working);
         }
       })
-      .catch((e) => active && setError(e.message));
+      .catch((e) => {
+        if (active) {
+          setValidationError(false);
+          setError(e.message);
+        }
+      });
     return () => {
       active = false;
     };
@@ -53,10 +61,12 @@ export default function ConflictPanel({
       setError(
         "Rimuovi tutti i marcatori di conflitto prima di preparare il file.",
       );
+      setValidationError(true);
       return;
     }
     setBusy(true);
     setError("");
+    setValidationError(false);
     try {
       await window.branchline.invoke("repo.action", {
         path: snapshot.path,
@@ -79,17 +89,17 @@ export default function ConflictPanel({
         className="conflict-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Editor conflitti"
+        aria-label={t("Editor conflitti")}
       >
         <header>
           <GitMerge size={22} />
           <div>
-            <h2>Risolvi il conflitto</h2>
+            <h2>{t("Risolvi il conflitto")}</h2>
             <p>
               {file} <span>· {snapshot.operation}</span>
             </p>
           </div>
-          <button onClick={onClose} aria-label="Chiudi editor conflitti">
+          <button onClick={onClose} aria-label={t("Chiudi editor conflitti")}>
             <X size={20} />
           </button>
         </header>
@@ -98,7 +108,7 @@ export default function ConflictPanel({
             <div className="conflict-sources">
               <section>
                 <header>
-                  <strong>OURS · versione corrente</strong>
+                  <strong>{t("OURS · versione corrente")}</strong>
                   <button
                     onClick={() => {
                       setContent(versions.ours);
@@ -107,19 +117,19 @@ export default function ConflictPanel({
                   >
                     <ArrowDown size={13} />
                     {versions.present.ours
-                      ? "Usa questa"
-                      : "Mantieni eliminazione"}
+                      ? t("Usa questa")
+                      : t("Mantieni eliminazione")}
                   </button>
                 </header>
                 <pre>
                   {versions.present.ours
-                    ? versions.ours || "(File vuoto)"
-                    : "(File eliminato in questa versione)"}
+                    ? versions.ours || t("(File vuoto)")
+                    : t("(File eliminato in questa versione)")}
                 </pre>
               </section>
               <section>
                 <header>
-                  <strong>THEIRS · versione in arrivo</strong>
+                  <strong>{t("THEIRS · versione in arrivo")}</strong>
                   <button
                     onClick={() => {
                       setContent(versions.theirs);
@@ -128,33 +138,44 @@ export default function ConflictPanel({
                   >
                     <ArrowDown size={13} />
                     {versions.present.theirs
-                      ? "Usa questa"
-                      : "Mantieni eliminazione"}
+                      ? t("Usa questa")
+                      : t("Mantieni eliminazione")}
                   </button>
                 </header>
                 <pre>
                   {versions.present.theirs
-                    ? versions.theirs || "(File vuoto)"
-                    : "(File eliminato in questa versione)"}
+                    ? versions.theirs || t("(File vuoto)")
+                    : t("(File eliminato in questa versione)")}
                 </pre>
               </section>
             </div>
             <div className="conflict-notice">
               {snapshot.operation === "rebase"
-                ? "Durante un rebase, OURS è la nuova base e THEIRS è il commit che stai riapplicando."
-                : "Puoi scegliere una versione completa oppure combinare il contenuto nell’editor."}
+                ? t(
+                    "Durante un rebase, OURS è la nuova base e THEIRS è il commit che stai riapplicando.",
+                  )
+                : t(
+                    "Puoi scegliere una versione completa oppure combinare il contenuto nell’editor.",
+                  )}
             </div>
             <div className="conflict-result">
               <header>
                 <strong>
                   {remove
-                    ? "RISULTATO · file eliminato"
-                    : "RISULTATO · modifica e verifica"}
+                    ? t("RISULTATO · file eliminato")
+                    : t("RISULTATO · modifica e verifica")}
                 </strong>
-                <span>{content.split("\n").length} righe</span>
+                <span>
+                  {t(
+                    content.split("\n").length === 1
+                      ? "{count} riga"
+                      : "{count} righe",
+                    { count: formatNumber(content.split("\n").length) },
+                  )}
+                </span>
               </header>
               <textarea
-                aria-label="Contenuto risolto"
+                aria-label={t("Contenuto risolto")}
                 spellCheck={false}
                 value={content}
                 onChange={(e) => {
@@ -168,29 +189,33 @@ export default function ConflictPanel({
           !error && (
             <p>
               <LoaderCircle className="spin" />
-              Caricamento versioni…
+              {t("Caricamento versioni…")}
             </p>
           )
         )}
         {error && (
           <div className="tools-error" role="alert">
-            {error}
+            {validationError
+              ? t(
+                  "Rimuovi tutti i marcatori di conflitto prima di preparare il file.",
+                )
+              : error}
           </div>
         )}
         <footer>
           <span>
             {remove
-              ? "L’eliminazione del file viene aggiunta allo staging."
-              : "Il file viene salvato e aggiunto allo staging."}
+              ? t("L’eliminazione del file viene aggiunta allo staging.")
+              : t("Il file viene salvato e aggiunto allo staging.")}
           </span>
-          <button onClick={onClose}>Annulla</button>
+          <button onClick={onClose}>{t("Annulla")}</button>
           <button
             className="conflict-save"
             disabled={busy || !versions}
             onClick={() => void save()}
           >
             <Check size={15} />
-            {busy ? "Salvataggio…" : "Salva e prepara"}
+            {busy ? t("Salvataggio…") : t("Salva e prepara")}
           </button>
         </footer>
       </section>

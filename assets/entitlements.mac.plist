@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Electron's JavaScript engine uses JIT-generated code on Apple Silicon. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!-- Ad-hoc signing has no Team ID matching embedded Electron frameworks. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

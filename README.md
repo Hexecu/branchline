@@ -17,13 +17,15 @@ Branchline runs Git on your computer. Its demo is a real, isolated repository wi
 - Open a native terminal, switch themes, and browse pull or merge requests through GitHub, GitLab, Bitbucket Cloud/Server, Azure DevOps, Gitea, or Forgejo. Hosting profiles support public services and enterprise servers; issue support depends on the provider.
 - Optionally ask an AI model for a commit message or review of a diff. Local models and cloud providers are both configurable; suggestions remain text for you to review.
 
-The interface currently uses Italian labels. The [practical guide](docs/GUIDE.md) explains those labels and the main workflows in English.
+English is the default interface language. Choose **English, Italiano, Español, Français, Deutsch, Português (Brasil), 日本語, or 简体中文** from **Preferences → Interface language**, the first preference. The language button in the header opens the same selector. Your choice applies immediately and is saved for the next launch.
 
-## Run locally
+See the [practical guide](docs/GUIDE.md) for examples using the English interface.
 
-A [macOS Apple Silicon preview](https://github.com/Hexecu/branchline/releases/tag/v0.3.0) is available as a ZIP containing the app. It is unsigned and not notarized. Download and extract it, then move `Branchline.app` to your Applications folder. Build from source with the steps below if you prefer.
+View the native preference screen in [Deutsch](docs/screenshots/preferences-de.jpg) or [简体中文](docs/screenshots/preferences-zh.jpg).
 
-You need macOS, Git, Node.js 22.12 or newer, and npm. Install the dependencies and launch the development app:
+## Build and run from source
+
+You need macOS, Git, Node.js 22.12 or newer, and npm. From the source checkout, install the dependencies and launch the development app:
 
 ```sh
 npm ci
@@ -43,19 +45,19 @@ Create a macOS application bundle with:
 npm run package
 ```
 
-The bundle is written to `release/`. Signing and notarization are not configured; this build is intended for local use. If native dependency compilation fails, install the Xcode Command Line Tools and retry.
+The bundle is written to `~/Library/Caches/Branchline/build/v0.4.0/`, outside synchronized project folders. Local bundles use ad-hoc signing for package integrity. **Developer ID signing and Apple notarization are pending**; an ad-hoc signature does not make a download trusted by Gatekeeper. See [macOS distribution](docs/MACOS.md) for the current packaging and verification process. If native dependency compilation fails, install the Xcode Command Line Tools and retry.
 
-Open the app and choose **Esplora la demo** (Explore the demo). The **+** beside the repository tabs and the command palette also let you open the isolated demo. Existing demo changes are preserved when you reopen it.
+Open the app and choose **Explore the demo**. The **+** beside the repository tabs and the command palette also let you open the isolated demo. Existing demo changes are preserved when you reopen it.
 
 ## Prepare a focused commit
 
-Click a changed file to inspect its diff. Use **Stage hunk** to prepare only that block, or the file's **+** button to stage the whole file. Review the staging list, enter a message, and choose **Crea commit**. A commit stays local until you push it.
+Click a changed file to inspect its diff. Use **Stage hunk** to prepare only that block, or the file's **+** button to stage the whole file. Review the staging list, enter a message, and choose **Create commit**. A commit stays local until you push it.
 
 ![Unified file diff and the hunk staging controls](docs/screenshots/diff.jpg)
 
 ## Hosting profiles
 
-Open **Integrazioni** to choose a remote, or **Preferenze → Profili hosting** to configure an account or enterprise server. Profiles cover GitHub, GitLab, Bitbucket Cloud/Server, Azure DevOps, Gitea and Forgejo. Bind a saved profile to each repository/remote pair without changing Git's URL or credentials.
+Open **Integrations** to choose a remote, or **Preferences → Hosting profiles** to configure an account or enterprise server. Profiles cover GitHub, GitLab, Bitbucket Cloud/Server, Azure DevOps, Gitea and Forgejo. Bind a saved profile to each repository/remote pair without changing Git's URL or credentials.
 
 Public access can run without a token. Private access uses encrypted credentials or, for GitHub, the existing GitHub CLI login. Integration lists are read-only; supported issue APIs vary by provider. See the [hosting guide](docs/HOSTING.md) for server URLs, authentication modes and limits.
 
@@ -67,7 +69,7 @@ View the [read-only GitLab list](docs/screenshots/hosting-integration.jpg), retr
 
 Configure profiles for **OpenAI, Azure OpenAI, Google AI Studio, Vertex AI, LiteLLM, Amazon Bedrock, Ollama, or an OpenAI-compatible endpoint** such as LM Studio or vLLM. Import `.env` or JSON settings, discover models where supported, or enter an exact model ID manually.
 
-The app shows the selected destination before generation. A cloud profile sends the chosen diff to that provider when you click **Genera suggerimento**; a local profile uses its configured local endpoint. Git operations work without AI or a cloud account.
+The app shows the selected destination before generation. A cloud profile sends the chosen diff to that provider when you click **Generate suggestion**; a local profile uses its configured local endpoint. Git operations work without AI or a cloud account.
 
 Credentials are encrypted through the operating system and kept separately from profile metadata. Saved secrets are never returned to the interface. See [AI configuration and data handling](docs/AI.md) for authentication, import formats, limits, and test coverage.
 

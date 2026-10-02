@@ -20,9 +20,10 @@ Branchline is a local desktop Git client with an original interface. It follows 
 | Commit messages | Emoji aliases and a safe Markdown subset: headings, lists/tasks, emphasis, links, quotes and fenced code. Raw HTML and image loading are excluded; very large bodies remain available as original text. | Commit details; HTTPS links open externally. |
 | Optional AI | OpenAI, Azure OpenAI, Vertex/Gemini, Google AI Studio, LiteLLM, Bedrock, Ollama and compatible profiles; environment/JSON import, exact model selection and text suggestions from a diff. Encrypted credential storage. | Preferences → Configure AI; Tools → AI assistant → Profiles and models. See [AI.md](AI.md). |
 | Desktop | Dark/light themes, text preferences, local settings, native menus and a real PTY terminal. | Top controls, Preferences and Terminal toolbar. |
+| Languages | English, Italian, Spanish, French, German, Brazilian Portuguese, Japanese and Simplified Chinese; immediate local preference persistence and locale-aware dates/numbers. Repository content remains unchanged. | Welcome screen language control or Preferences → Interface language. See [LANGUAGES.md](LANGUAGES.md). |
 | Git hosting | Read-only profiles and remote bindings for GitHub/Enterprise, GitLab/self-managed, Bitbucket Cloud/Server, Azure DevOps/Server, Gitea and Forgejo. PR/MR lists, supported issue lists and external links. Public access or encrypted token profiles; GitHub CLI optional. | Preferences → Hosting profiles; Integrations remote selector. See [HOSTING.md](HOSTING.md). |
 
-UI labels currently include Italian translations such as **Strumenti**, **Assistente AI** and **Preferenze**. The graph and Git actions operate on the selected real repository. The terminal runs an actual shell and is outside the recovery journal.
+New installations start in English; an existing saved Italian language preference remains Italian. The graph and Git actions operate on the selected real repository. The terminal runs an actual shell and is outside the recovery journal.
 
 Autostash defaults on for checkout, merge, rebase and pull, with an opt-out in Preferences and operation dialogs. It restores the index after completion or a matching Continue/Abort. The stash entry and recovery ref remain available even after successful restoration. Restore conflicts have a separate recovery banner; ignored files are excluded from the stash and obstructing ignored content blocks the operation.
 
@@ -38,7 +39,7 @@ Autostash defaults on for checkout, merge, rebase and pull, with an opt-out in P
 - Hosting adapters expose read-only lists, with up to 50 results. Bitbucket Cloud/Server do not expose native issues; Azure lists project work items rather than repository issues. Custom server versions, permissions and authentication gateways are not universally validated. Jira and Trello adapters are not implemented.
 - GitKraken Cloud Workspaces, Team Launchpad, Insights and organization-wide conflict awareness depend on services that Branchline does not reproduce.
 - AI discovery is a catalog, not proof of inference access. Azure deployment names and Vertex Gemini IDs are entered manually. Requests use the exact selected model without an alternative-model fallback.
-- The packaged build currently targets macOS. Windows/Linux packaging, signing and notarization are outside the recorded release validation.
+- The packaged build currently targets macOS. Ad-hoc signature integrity is checked before distribution; Developer ID signing and notarization are not provided. Windows/Linux packaging is outside the recorded release validation. See [MACOS.md](MACOS.md).
 
 The project does not include proprietary GitKraken source, branding or assets. Its original icon is separate from the Lucide interface icons. Fonts use CSS family names and system fallbacks; no font binaries are bundled.
 

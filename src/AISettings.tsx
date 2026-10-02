@@ -20,6 +20,11 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import "./ai-settings.css";
+import { useI18n } from "./i18n";
+type Translate = (
+  key: string,
+  params?: Record<string, string | number>,
+) => string;
 export type AIProvider =
   | "openai"
   | "azure"
@@ -130,12 +135,17 @@ export function isLocalAIProfile(
     return false;
   }
 }
-export function aiDestination(profile: AIProfile) {
+export function aiDestination(profile: AIProfile, t: Translate) {
   return isLocalAIProfile(profile)
-    ? "Endpoint locale sul tuo computer"
+    ? t("Endpoint locale sul tuo computer")
     : profile.provider === "litellm"
-      ? "Gateway LiteLLM: il modello può usare un servizio remoto"
-      : `Servizio ${AIProviders.find((p) => p.id === profile.provider)?.name || profile.provider}`;
+      ? t("Gateway LiteLLM: il modello può usare un servizio remoto")
+      : t("Servizio {provider}", {
+          provider: t(
+            AIProviders.find((p) => p.id === profile.provider)?.name ||
+              profile.provider,
+          ),
+        });
 }
 const freshProfile = (): AIProfile => ({
   id: crypto.randomUUID(),
@@ -153,6 +163,7 @@ export default function AISettings({
   onClose: () => void;
   onSaved?: () => void;
 }) {
+  const { t, formatNumber } = useI18n();
   const [config, setConfig] = useState<AIConfiguration>({
       profiles: [],
       activeProfileId: null,
@@ -163,7 +174,11 @@ export default function AISettings({
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [notice, setNotice] = useState(""),
+    [notice, setNotice] = useState<{
+      key: string;
+      params?: Record<string, string | number>;
+      raw?: boolean;
+    } | null>(null),
     [test, setTest] = useState<{
       text: string;
       model: string;
@@ -214,7 +229,7 @@ export default function AISettings({
     if (busy) return;
     setBusy(true);
     setError("");
-    setNotice("");
+    setNotice(null);
     try {
       await fn();
     } catch (e) {
@@ -229,7 +244,7 @@ export default function AISettings({
     setModels([]);
     setTest(null);
     setError("");
-    setNotice("");
+    setNotice(null);
     setRemoveId(null);
   }
   function setProvider(provider: AIProvider) {
@@ -261,20 +276,22 @@ export default function AISettings({
       <label className="ai-field ai-secret">
         <span>
           <KeyRound size={12} />
-          {label}
+          {t(label)}
         </span>
         <input
           type="password"
           autoComplete="new-password"
           spellCheck={false}
-          aria-label={label}
+          aria-label={t(label)}
           disabled={busy}
           value={credentials[key] || ""}
           onChange={(e) =>
             setCredentials({ ...credentials, [key]: e.target.value })
           }
           placeholder={
-            draft?.hasCredential ? placeholder : "Inserisci la credenziale"
+            draft?.hasCredential
+              ? t(placeholder)
+              : t("Inserisci la credenziale")
           }
         />
       </label>
@@ -297,7 +314,9 @@ export default function AISettings({
     });
     await load(profile.id);
     setTest(null);
-    setNotice("Profilo salvato. Nessuna richiesta è stata inviata al modello.");
+    setNotice({
+      key: "Profilo salvato. Nessuna richiesta è stata inviata al modello.",
+    });
     onSaved?.();
   }
   const authOptions =
@@ -336,7 +355,7 @@ export default function AISettings({
         className="ai-settings-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Profili e modelli AI"
+        aria-label={t("Profili e modelli AI")}
       >
         <header>
           <div className="ai-settings-symbol">
@@ -344,16 +363,18 @@ export default function AISettings({
           </div>
           <div>
             <div className="ai-eyebrow">BRANCHLINE / AI</div>
-            <h2>Il tuo provider. Il tuo modello.</h2>
+            <h2>{t("Il tuo provider. Il tuo modello.")}</h2>
             <p>
-              Profili locali e cloud, con credenziali conservate sul computer.
+              {t(
+                "Profili locali e cloud, con credenziali conservate sul computer.",
+              )}
             </p>
           </div>
           <button
             className="ai-icon-button"
             disabled={busy}
             onClick={onClose}
-            aria-label="Chiudi impostazioni AI"
+            aria-label={t("Chiudi impostazioni AI")}
           >
             <X size={20} />
           </button>
@@ -361,9 +382,9 @@ export default function AISettings({
         <div className="ai-settings-workspace">
           <aside className="ai-profile-sidebar">
             <div className="ai-sidebar-heading">
-              <span>PROFILI</span>
+              <span>{t("PROFILI")}</span>
               <button
-                aria-label="Aggiungi profilo AI"
+                aria-label={t("Aggiungi profilo AI")}
                 disabled={busy}
                 onClick={() => {
                   setDraft(freshProfile());
@@ -371,7 +392,7 @@ export default function AISettings({
                   setModels([]);
                   setTest(null);
                   setError("");
-                  setNotice("");
+                  setNotice(null);
                   setRemoveId(null);
                 }}
               >
@@ -381,7 +402,7 @@ export default function AISettings({
             {loading ? (
               <div className="ai-profile-empty">
                 <LoaderCircle size={18} className="spin" />
-                Caricamento…
+                {t("Caricamento…")}
               </div>
             ) : config.profiles.length ? (
               config.profiles.map((p) => (
@@ -399,7 +420,10 @@ export default function AISettings({
                   <div>
                     <strong>{p.name}</strong>
                     <span>
-                      {AIProviders.find((x) => x.id === p.provider)?.name}
+                      {t(
+                        AIProviders.find((x) => x.id === p.provider)?.name ||
+                          p.provider,
+                      )}
                       {p.model && ` · ${p.model}`}
                     </span>
                   </div>
@@ -410,13 +434,13 @@ export default function AISettings({
               ))
             ) : (
               <div className="ai-profile-empty">
-                Aggiungi un profilo o importa una configurazione.
+                {t("Aggiungi un profilo o importa una configurazione.")}
               </div>
             )}
             {draft && !saved && (
               <div className="ai-profile-draft">
                 <Plus size={13} />
-                <span>Nuovo profilo</span>
+                <span>{t("Nuovo profilo")}</span>
               </div>
             )}
             <div className="ai-import-actions">
@@ -428,16 +452,17 @@ export default function AISettings({
                       await invoke<AIConfiguration>("ai.importHarness");
                     await load();
                     onSaved?.();
-                    setNotice(
-                      JSON.stringify(imported) === JSON.stringify(config)
-                        ? "Importazione annullata o configurazione invariata."
-                        : "Profili importati dalla configurazione locale. Nessuna richiesta ai modelli eseguita.",
-                    );
+                    setNotice({
+                      key:
+                        JSON.stringify(imported) === JSON.stringify(config)
+                          ? "Importazione annullata o configurazione invariata."
+                          : "Profili importati dalla configurazione locale. Nessuna richiesta ai modelli eseguita.",
+                    });
                   })
                 }
               >
                 <FolderInput size={14} />
-                Importa dal harness
+                {t("Importa dal harness")}
               </button>
               <button
                 disabled={busy}
@@ -446,18 +471,23 @@ export default function AISettings({
                     const imported = await invoke<AIConfiguration>("ai.import");
                     await load();
                     onSaved?.();
-                    setNotice(
-                      JSON.stringify(imported) === JSON.stringify(config)
-                        ? "Importazione annullata o configurazione invariata."
-                        : "Importazione completata. Verifica provider e modelli prima di usarli.",
-                    );
+                    setNotice({
+                      key:
+                        JSON.stringify(imported) === JSON.stringify(config)
+                          ? "Importazione annullata o configurazione invariata."
+                          : "Importazione completata. Verifica provider e modelli prima di usarli.",
+                    });
                   })
                 }
               >
                 <Download size={14} />
-                Importa .env / JSON
+                {t("Importa .env / JSON")}
               </button>
-              <p>Le credenziali importate restano nascoste nell’interfaccia.</p>
+              <p>
+                {t(
+                  "Le credenziali importate restano nascoste nell’interfaccia.",
+                )}
+              </p>
             </div>
           </aside>
           <main className="ai-profile-main">
@@ -466,39 +496,41 @@ export default function AISettings({
                 <div className="ai-profile-heading">
                   <div>
                     <span className="ai-section-eyebrow">
-                      {saved ? "CONFIGURAZIONE PROFILO" : "NUOVO PROFILO"}
+                      {saved ? t("CONFIGURAZIONE PROFILO") : t("NUOVO PROFILO")}
                     </span>
-                    <h3>{draft.name || "Configura una connessione"}</h3>
+                    <h3>{draft.name || t("Configura una connessione")}</h3>
                   </div>
                   {draft.id === config.activeProfileId ? (
                     <span className="ai-active-badge">
                       <Check size={12} />
-                      Attivo
+                      {t("Attivo")}
                     </span>
                   ) : saved ? (
-                    <span className="ai-profile-badge">Salvato</span>
+                    <span className="ai-profile-badge">{t("Salvato")}</span>
                   ) : null}
                 </div>
                 <label className="ai-field">
-                  <span>Nome del profilo</span>
+                  <span>{t("Nome del profilo")}</span>
                   <input
                     autoFocus={!saved}
                     value={draft.name}
-                    placeholder="Es. Ollama personale, Azure aziendale…"
+                    placeholder={t("Es. Ollama personale, Azure aziendale…")}
                     onChange={(e) => change("name", e.target.value)}
                     disabled={busy}
                   />
                 </label>
                 <div className="ai-field-label">
-                  Provider
+                  {t("Provider")}
                   {saved && (
-                    <small>Per cambiare provider, crea un nuovo profilo.</small>
+                    <small>
+                      {t("Per cambiare provider, crea un nuovo profilo.")}
+                    </small>
                   )}
                 </div>
                 <div
                   className="ai-provider-grid"
                   role="group"
-                  aria-label="Provider AI"
+                  aria-label={t("Provider AI")}
                 >
                   {AIProviders.map((p) => (
                     <button
@@ -513,7 +545,7 @@ export default function AISettings({
                       ) : (
                         <Cloud size={14} />
                       )}
-                      <span>{p.name}</span>
+                      <span>{t(p.name)}</span>
                       {draft.provider === p.id && <Check size={12} />}
                     </button>
                   ))}
@@ -523,10 +555,10 @@ export default function AISettings({
                     <label className="ai-field ai-full-width">
                       <span>
                         {draft.provider === "azure"
-                          ? "Endpoint della risorsa Azure"
-                          : "URL del servizio"}
+                          ? t("Endpoint della risorsa Azure")
+                          : t("URL del servizio")}
                         {draft.provider === "google" && (
-                          <small>Facoltativo</small>
+                          <small>{t("Facoltativo")}</small>
                         )}
                       </span>
                       <input
@@ -536,7 +568,7 @@ export default function AISettings({
                             ?.endpoint ||
                           (draft.provider === "azure"
                             ? "https://risorsa.openai.azure.com"
-                            : "Endpoint predefinito del provider")
+                            : t("Endpoint predefinito del provider"))
                         }
                         onChange={(e) => change("baseUrl", e.target.value)}
                         spellCheck={false}
@@ -547,11 +579,12 @@ export default function AISettings({
                   {draft.provider === "azure" && (
                     <label className="ai-field ai-full-width">
                       <span>
-                        Versione API<small>Facoltativa · vuota usa v1</small>
+                        {t("Versione API")}
+                        <small>{t("Facoltativa · vuota usa v1")}</small>
                       </span>
                       <input
                         value={draft.apiVersion || ""}
-                        placeholder="Vuota per API v1"
+                        placeholder={t("Vuota per API v1")}
                         onChange={(e) => change("apiVersion", e.target.value)}
                         disabled={busy}
                       />
@@ -560,7 +593,7 @@ export default function AISettings({
                   {draft.provider === "vertex" && (
                     <>
                       <label className="ai-field">
-                        <span>Progetto Google Cloud</span>
+                        <span>{t("Progetto Google Cloud")}</span>
                         <input
                           value={draft.project || ""}
                           placeholder="project-id"
@@ -569,10 +602,10 @@ export default function AISettings({
                         />
                       </label>
                       <label className="ai-field">
-                        <span>Location</span>
+                        <span>{t("Location")}</span>
                         <input
                           value={draft.location || ""}
-                          placeholder="global oppure una regione"
+                          placeholder={t("global oppure una regione")}
                           onChange={(e) => change("location", e.target.value)}
                           disabled={busy}
                         />
@@ -581,7 +614,7 @@ export default function AISettings({
                   )}
                   {draft.provider === "bedrock" && (
                     <label className="ai-field ai-full-width">
-                      <span>Regione AWS</span>
+                      <span>{t("Regione AWS")}</span>
                       <input
                         value={draft.region || ""}
                         placeholder="eu-west-1"
@@ -592,11 +625,13 @@ export default function AISettings({
                   )}
                   {authOptions.length > 0 && (
                     <div className="ai-full-width">
-                      <div className="ai-field-label">Autenticazione</div>
+                      <div className="ai-field-label">
+                        {t("Autenticazione")}
+                      </div>
                       <div
                         className="ai-auth-options"
                         role="group"
-                        aria-label="Metodo di autenticazione"
+                        aria-label={t("Metodo di autenticazione")}
                       >
                         {authOptions.map((a) => (
                           <button
@@ -613,7 +648,7 @@ export default function AISettings({
                               setCredentials({});
                             }}
                           >
-                            {a.label}
+                            {t(a.label)}
                           </button>
                         ))}
                       </div>
@@ -644,8 +679,9 @@ export default function AISettings({
                   {draft.provider === "vertex" && draft.authMode === "adc" && (
                     <p className="ai-auth-note ai-full-width">
                       <ShieldCheck size={13} />
-                      Usa Application Default Credentials configurate sul
-                      computer.
+                      {t(
+                        "Usa Application Default Credentials configurate sul computer.",
+                      )}
                     </p>
                   )}
                   {draft.provider === "bedrock" && draft.authMode === "aws" && (
@@ -667,7 +703,7 @@ export default function AISettings({
                   {draft.provider === "bedrock" &&
                     draft.authMode === "awsProfile" && (
                       <label className="ai-field ai-full-width">
-                        <span>Profilo AWS locale</span>
+                        <span>{t("Profilo AWS locale")}</span>
                         <input
                           value={draft.awsProfile || ""}
                           placeholder="default"
@@ -681,28 +717,38 @@ export default function AISettings({
                   <ShieldCheck size={12} />
                   {draft.provider === "compatible" &&
                   (!draft.authMode || draft.authMode === "none")
-                    ? "Endpoint configurato senza autenticazione. Le eventuali credenziali salvate non vengono inviate."
+                    ? t(
+                        "Endpoint configurato senza autenticazione. Le eventuali credenziali salvate non vengono inviate.",
+                      )
                     : draft.hasCredential
-                      ? "Credenziale presente. Il valore salvato non viene mostrato."
+                      ? t(
+                          "Credenziale presente. Il valore salvato non viene mostrato.",
+                        )
                       : draft.provider === "ollama"
-                        ? "Questo profilo Ollama usa un endpoint senza credenziali."
+                        ? t(
+                            "Questo profilo Ollama usa un endpoint senza credenziali.",
+                          )
                         : draft.authMode === "adc" ||
                             draft.authMode === "awsProfile"
-                          ? "Accesso tramite credenziali configurate sul computer."
-                          : "Nessuna credenziale salvata per questo profilo."}
+                          ? t(
+                              "Accesso tramite credenziali configurate sul computer.",
+                            )
+                          : t(
+                              "Nessuna credenziale salvata per questo profilo.",
+                            )}
                 </div>
                 <div className="ai-model-heading">
                   <span className="ai-field-label">
                     {draft.provider === "azure"
-                      ? "Deployment / modello"
-                      : "Modello"}
+                      ? t("Deployment / modello")
+                      : t("Modello")}
                   </span>
                   <button
                     disabled={busy || !saved || dirty}
                     title={
                       dirty
-                        ? "Salva il profilo prima di rilevare i modelli"
-                        : "Interroga il provider per elencare i modelli"
+                        ? t("Salva il profilo prima di rilevare i modelli")
+                        : t("Interroga il provider per elencare i modelli")
                     }
                     onClick={() =>
                       task(async () => {
@@ -712,25 +758,31 @@ export default function AISettings({
                         }>("ai.models", { profileId: draft.id });
                         setModels(r.models);
                         setNotice(
-                          r.message ||
-                            `${r.models.length} modelli disponibili. Nessuna inferenza eseguita.`,
+                          r.message
+                            ? { key: r.message, raw: true }
+                            : {
+                                key: "{count} modelli disponibili. Nessuna inferenza eseguita.",
+                                params: {
+                                  count: r.models.length,
+                                },
+                              },
                         );
                       })
                     }
                   >
                     <RefreshCw size={12} />
-                    Rileva modelli
+                    {t("Rileva modelli")}
                   </button>
                 </div>
                 <input
                   className="ai-model-input"
-                  aria-label="Modello del profilo AI"
+                  aria-label={t("Modello del profilo AI")}
                   value={draft.model}
                   list="ai-settings-models"
                   placeholder={
                     draft.provider === "azure"
-                      ? "Nome deployment Azure"
-                      : "Scegli un modello rilevato o inserisci un ID"
+                      ? t("Nome deployment Azure")
+                      : t("Scegli un modello rilevato o inserisci un ID")
                   }
                   onChange={(e) => change("model", e.target.value)}
                   disabled={busy}
@@ -741,8 +793,9 @@ export default function AISettings({
                   ))}
                 </datalist>
                 <p className="ai-model-note">
-                  Puoi inserire manualmente il modello anche quando il provider
-                  non offre un elenco.
+                  {t(
+                    "Puoi inserire manualmente il modello anche quando il provider non offre un elenco.",
+                  )}
                 </p>
                 <div className="ai-data-destination">
                   <span
@@ -755,13 +808,18 @@ export default function AISettings({
                     )}
                   </span>
                   <div>
-                    <strong>{aiDestination(draft)}</strong>
+                    <strong>{aiDestination(draft, t)}</strong>
                     <p>
                       {isLocalAIProfile(draft)
-                        ? "I diff vengono inviati all’endpoint locale configurato."
-                        : "Quando generi un suggerimento, il diff viene inviato a questo provider."}{" "}
-                      Il test usa una richiesta sintetica e non include file del
-                      repository.
+                        ? t(
+                            "I diff vengono inviati all’endpoint locale configurato.",
+                          )
+                        : t(
+                            "Quando generi un suggerimento, il diff viene inviato a questo provider.",
+                          )}{" "}
+                      {t(
+                        "Il test usa una richiesta sintetica e non include file del repository.",
+                      )}
                     </p>
                   </div>
                 </div>
@@ -776,7 +834,7 @@ export default function AISettings({
                     ) : (
                       <Check size={14} />
                     )}
-                    Salva profilo
+                    {t("Salva profilo")}
                   </button>
                   <button
                     disabled={busy || !saved || dirty || !draft.model.trim()}
@@ -788,14 +846,14 @@ export default function AISettings({
                         });
                         await load(draft.id);
                         onSaved?.();
-                        setNotice(
-                          "Profilo e modello attivi per le nuove richieste.",
-                        );
+                        setNotice({
+                          key: "Profilo e modello attivi per le nuove richieste.",
+                        });
                       })
                     }
                   >
                     <Sparkles size={14} />
-                    Usa come attivo
+                    {t("Usa come attivo")}
                   </button>
                   <button
                     disabled={busy || !saved || dirty || !draft.model.trim()}
@@ -811,19 +869,21 @@ export default function AISettings({
                           model: draft.model,
                         });
                         setTest(r);
-                        setNotice(
-                          "Test completato con una richiesta sintetica.",
-                        );
+                        setNotice({
+                          key: "Test completato con una richiesta sintetica.",
+                        });
                       })
                     }
                   >
                     <FlaskConical size={14} />
-                    Test connessione
+                    {t("Test connessione")}
                   </button>
                   {saved && (
                     <button
                       className="ai-delete-button"
-                      aria-label={`Elimina profilo ${draft.name}`}
+                      aria-label={t("Elimina profilo {name}", {
+                        name: draft.name,
+                      })}
                       disabled={busy}
                       onClick={() => setRemoveId(draft.id)}
                     >
@@ -833,22 +893,26 @@ export default function AISettings({
                 </div>
                 {dirty && saved && (
                   <p className="ai-unsaved-note">
-                    Salva le modifiche prima di rilevare modelli, attivare il
-                    profilo o eseguire il test.
+                    {t(
+                      "Salva le modifiche prima di rilevare modelli, attivare il profilo o eseguire il test.",
+                    )}
                   </p>
                 )}
                 {removeId === draft.id && (
                   <div className="ai-delete-confirm">
                     <AlertTriangle size={16} />
                     <div>
-                      <strong>Eliminare “{draft.name}”?</strong>
+                      <strong>
+                        {t("Eliminare “{name}”?", { name: draft.name })}
+                      </strong>
                       <p>
-                        Verranno rimossi il profilo e le sue credenziali
-                        salvate.
+                        {t(
+                          "Verranno rimossi il profilo e le sue credenziali salvate.",
+                        )}
                       </p>
                     </div>
                     <button disabled={busy} onClick={() => setRemoveId(null)}>
-                      Annulla
+                      {t("Annulla")}
                     </button>
                     <button
                       className="danger"
@@ -859,11 +923,11 @@ export default function AISettings({
                           setRemoveId(null);
                           await load();
                           onSaved?.();
-                          setNotice("Profilo eliminato.");
+                          setNotice({ key: "Profilo eliminato." });
                         })
                       }
                     >
-                      Elimina
+                      {t("Elimina")}
                     </button>
                   </div>
                 )}
@@ -871,9 +935,15 @@ export default function AISettings({
                   <div className="ai-test-result">
                     <header>
                       <CheckCircle2 size={13} />
-                      <strong>Risposta del test</strong>
+                      <strong>{t("Risposta del test")}</strong>
                       <span>
-                        {test.model} · {(test.durationMs / 1000).toFixed(2)} s
+                        {t("{model} · {seconds} s", {
+                          model: test.model,
+                          seconds: formatNumber(test.durationMs / 1000, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }),
+                        })}
                       </span>
                     </header>
                     <pre>{test.text}</pre>
@@ -885,10 +955,11 @@ export default function AISettings({
                 <div>
                   <Sparkles size={34} />
                 </div>
-                <h3>Scegli dove eseguire i tuoi modelli</h3>
+                <h3>{t("Scegli dove eseguire i tuoi modelli")}</h3>
                 <p>
-                  Aggiungi un profilo per il computer locale, un provider cloud
-                  o un gateway aziendale.
+                  {t(
+                    "Aggiungi un profilo per il computer locale, un provider cloud o un gateway aziendale.",
+                  )}
                 </p>
                 <button
                   disabled={busy || loading}
@@ -899,20 +970,33 @@ export default function AISettings({
                   }}
                 >
                   <Plus size={15} />
-                  Aggiungi il primo profilo
+                  {t("Aggiungi il primo profilo")}
                 </button>
               </div>
             )}
             {error && (
               <div className="ai-settings-error" role="alert">
                 <AlertTriangle size={15} />
-                <span>{error}</span>
+                <span>
+                  {error === "Assegna un nome al profilo."
+                    ? t("Assegna un nome al profilo.")
+                    : error}
+                </span>
               </div>
             )}
             {notice && (
               <div className="ai-settings-notice" role="status">
                 <CheckCircle2 size={15} />
-                <span>{notice}</span>
+                <span>
+                  {notice.raw
+                    ? notice.key
+                    : t(notice.key, {
+                        ...notice.params,
+                        ...(typeof notice.params?.count === "number"
+                          ? { count: formatNumber(notice.params.count) }
+                          : {}),
+                      })}
+                </span>
               </div>
             )}
           </main>
@@ -920,10 +1004,10 @@ export default function AISettings({
         <footer>
           <span>
             <ShieldCheck size={13} />
-            Nessuna richiesta al modello viene eseguita all’apertura.
+            {t("Nessuna richiesta al modello viene eseguita all’apertura.")}
           </span>
           <button disabled={busy} onClick={onClose}>
-            Chiudi
+            {t("Chiudi")}
           </button>
         </footer>
       </section>

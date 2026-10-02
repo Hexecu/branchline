@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import type { Commit } from "./types";
+import { useI18n } from "./i18n";
 
 export const graphColors = [
   "#58d6bc",
@@ -55,6 +56,7 @@ export default function Graph({
   onCheckout?: (hash: string) => void;
   rowMetrics?: GraphRowMetric[];
 }) {
+  const { t } = useI18n();
   const layout = useMemo(() => buildGraph(commits), [commits]);
   const rowHeight = 52;
   const yFor = (row: number) =>
@@ -71,7 +73,7 @@ export default function Graph({
       className="commit-graph"
       width={layout.width}
       height={totalHeight}
-      aria-label="Grafo della cronologia Git: collegamenti ai parent reali"
+      aria-label={t("Grafo della cronologia Git: collegamenti ai parent reali")}
     >
       {commits.flatMap((commit) => {
         const source = layout.points.get(commit.hash)!;

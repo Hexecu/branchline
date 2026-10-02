@@ -4,11 +4,15 @@ Validation dates: 2026-10-01–02. Desktop: macOS arm64, Electron 44.5.1. This r
 
 ## Automated checks
 
-The final `npm test` run passed **98 tests, zero failures**: 24 Git, 25 autostash/history, 17 hosting, four presentation, 14 AI adapter, seven importer and seven vault tests. Git fixtures are temporary synthetic repositories. The original Git tests also passed with Apple Git 2.39.5, alongside Git 2.44.
+The current local 0.4.0 `npm test` run passed **113 tests, zero failures**: the existing 98 checks (24 Git, 25 autostash/history, 17 hosting, four presentation, 14 AI adapter, seven importer and seven vault), plus seven localization and eight macOS release-pipeline tests. Git fixtures are temporary synthetic repositories. The original Git tests also passed with Apple Git 2.39.5, alongside Git 2.44.
 
 Git coverage includes real DAGs, refs, index/hunk staging, untracked/empty files, discard recovery, stash, merge/rebase/cherry-pick/revert, interactive rebase, protected undo/redo, local remotes, worktrees, Git Flow feature operations, path traversal and option injection. Modify/delete conflicts distinguish an absent file from a present empty file.
 
 Autostash/history tests cover staged, unstaged and untracked preservation, deferred restoration, recovery references, failures and focused navigation. Hosting tests use simulated API/CLI responses to check provider routes, authentication, remote/profile bindings, normalization and error handling. Presentation tests cover Markdown HTML/link safety, emoji aliases, large messages and supplied graph row geometry; they do not prove native layout measurements.
+
+Localization checks cover complete templates for all eight languages, matching placeholders, actual static UI/native-menu calls, safe text interpolation, consistent catalog entries, locale dates/numbers and calendar-day comparisons across daylight-saving changes. These checks do not establish native visual quality or human linguistic review.
+
+Release-pipeline checks simulate native tools and certificate responses. They cover identity selection, fail-closed configuration, bounded/redacted diagnostics, signed build flags, notarization acceptance, stapling/Gatekeeper failures and final archive creation. These tests perform no real signing, Keychain lookup or Apple submission; a simulated `Accepted` response is not notarization evidence.
 
 AI tests use simulated HTTP/SDK responses. They verify provider routes and authentication, exact model selection, discovery, bounded input/output, credential redaction, safe import and vault behavior. They do not prove access to every cloud account. Vault unit tests simulate encryption; real macOS safeStorage was exercised separately.
 
@@ -49,13 +53,32 @@ The final source was exercised in a separate native preview against owned synthe
 
 These hosting requests used public repositories. Enterprise servers and authenticated hosting adapters have simulated coverage, not live account validation. AI adapter support likewise does not establish access to every cloud model.
 
-Screenshots in `docs/screenshots/` use synthetic demo or public hosting data. Workspace, diff and AI images were captured in an earlier 0.3 preview and may retain an older navigation label. Hosting settings show the public GitLab profile and successful test; the integration list was captured in the final packaged app, reading a public remote attached to the isolated demo. Each image illustrates the UI version in which it was captured.
+## Desktop behavior observed in 0.4.0
+
+The native source preview was exercised against the isolated demo. The final 0.4.0 production bundle was then opened from the cache build directory with the normal application profile. These are separate checks; neither establishes downloaded-app trust.
+
+| Flow                               | Observed result                                                                                                                                                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language discovery                 | Preferences listed all eight native language names, with language first; the header language button opened the same preference.                                                                                           |
+| Immediate switching                | Interface and native menu labels changed immediately. English graph, Tools and AI settings were inspected.                                                                                                                |
+| German and CJK preferences         | German and Simplified Chinese preferences were displayed and captured; the language selector and settings controls remained usable. This is a focused layout check, not full visual review of every language.             |
+| Default autostash                  | The preference was enabled by default in the native preview. Checkout/restoration behavior remains documented under the earlier native flows and current engine tests.                                                    |
+| Terminal continuity                | A variable set in the live PTY session retained its value after switching the interface language.                                                                                                                         |
+| Actual Quit and relaunch           | Process exit was confirmed, then the native preview was relaunched. German remained selected; the demo reopened with the same three changed files.                                                                        |
+| Production-bundle startup          | The final cache-built bundle rendered successfully and retained Italian, the open-repository list, the 16 px font setting and enabled autostash. No Git actions or repository mutations were performed during this check. |
+| Production German layout and menus | Switching to German updated native menus immediately. The context-menu history hint stayed on one line, and action labels wrapped correctly at 16 px. Italian was restored before quitting.                               |
+
+The packaged native PTY probe also passed. The bundle was then installed in the local Applications folder with the previous app retained in a backup; strict signature and ASAR checks passed after copying, and the installed app rendered with the existing profile. Production startup and layout checks do not establish Developer ID signing, notarization or Gatekeeper acceptance of a downloaded copy.
+
+Screenshots use synthetic demo or public hosting data. `workspace.jpg`, `ai-settings.jpg`, `preferences-de.jpg` and `preferences-zh.jpg` were captured in the 0.4.0 native preview. `diff.jpg`, `hosting-settings.jpg` and `hosting-integration.jpg` retain 0.3.0 evidence; the hosting images show public GitLab data. Each image illustrates the version in which it was captured.
 
 ## Build and CI
 
-The final `npm run package` passed, including TypeScript checking, the renderer build and creation of the **0.3.0 macOS arm64 bundle**. Native checks above were performed separately from packaging. Public binary signing/notarization is not configured.
+The original 0.3.0 build produced a macOS arm64 bundle but skipped final signing. A browser-downloaded copy was subsequently rejected as “damaged”; strict verification identified incomplete linker signatures. The 0.3.0 release now carries a download notice. Its ZIP checksum and local launch were not proof of downloaded-app trust.
 
-GitHub CI completed locked installation, all 98 isolated tests and the renderer build successfully in all four Ubuntu/macOS × Node 22/24 combinations. See the [first public CI run](https://github.com/Hexecu/branchline/actions/runs/36933136620) for the tested source revision. The workflow also runs on subsequent pushes.
+The new 0.4.0 packaging process builds outside synchronized source folders, removes only generated FinderInfo/ResourceFork metadata before signing, enables hardened runtime and creates a complete ad-hoc signature. `codesign --verify --deep --strict` and the package integrity checks pass. Gatekeeper assessment still rejects this ad-hoc build: Developer ID signing, Apple notarization and a stapled ticket remain pending account configuration. See [macOS distribution](MACOS.md).
+
+The archived 0.3.0 GitHub CI run completed locked installation, its 98 isolated tests and the renderer build in all four Ubuntu/macOS × Node 22/24 combinations. See the [first public CI run](https://github.com/Hexecu/branchline/actions/runs/36933136620) for that source revision. It does not validate the current 0.4.0 localization or release-pipeline additions. Current 0.4.0 automated and native evidence is recorded above; the workflow also runs on subsequent pushes.
 
 ## External requirements and limits
 

@@ -42,6 +42,8 @@
 }
 .hosting-dialog > header > div {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .hosting-dialog > header h2 {
   margin: 6px 0;
@@ -62,6 +64,11 @@
   color: var(--secondary);
   font-size: calc(11px * var(--font-scale, 1));
   line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.hosting-dialog button > svg {
+  flex-shrink: 0;
 }
 .hosting-dialog button:hover:not(:disabled) {
   color: var(--text);
@@ -165,6 +172,12 @@
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 23px;
+  gap: 10px;
+}
+.hosting-editor-heading > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .hosting-editor-heading h3,
 .hosting-binding h3 {
@@ -191,6 +204,7 @@
   font-size: calc(11px * var(--font-scale, 1));
   color: var(--secondary);
   font-weight: 550;
+  flex-wrap: wrap;
 }
 .hosting-field em {
   margin-left: auto;
