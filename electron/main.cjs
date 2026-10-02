@@ -19,6 +19,7 @@ const { AIService } = require("./ai.cjs");
 const { ProviderService } = require("./providers.cjs");
 const { AIVault } = require("./ai-vault.cjs");
 const { profilesFromFile } = require("./ai-import.cjs");
+const { saveSettings } = require("./settings.cjs");
 const { createDemo } = require("../scripts/demo.cjs");
 const {
   LANGUAGES,
@@ -249,9 +250,7 @@ async function invoke(method, p = {}) {
         !LANGUAGES.some((option) => option.code === s.language)
       )
         throw new Error(tr("Lingua non supportata"));
-      for (const k of Object.keys(defaults))
-        if (s[k] !== undefined) store.settings[k] = s[k];
-      persist();
+      saveSettings(store, s, Object.keys(defaults), persist);
       installMenu();
       return store.settings;
     }

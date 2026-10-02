@@ -4,13 +4,15 @@ Validation dates: 2026-10-01–02. Desktop: macOS arm64, Electron 44.5.1. This r
 
 ## Automated checks
 
-The current local 0.4.0 `npm test` run passed **113 tests, zero failures**: the existing 98 checks (24 Git, 25 autostash/history, 17 hosting, four presentation, 14 AI adapter, seven importer and seven vault), plus seven localization and eight macOS release-pipeline tests. Git fixtures are temporary synthetic repositories. The original Git tests also passed with Apple Git 2.39.5, alongside Git 2.44.
+The current local 0.4.0 `npm test` run passed **115 tests, zero failures**: the existing 98 checks (24 Git, 25 autostash/history, 17 hosting, four presentation, 14 AI adapter, seven importer and seven vault), plus seven localization, eight macOS release-pipeline and two preference-persistence tests. Git fixtures are temporary synthetic repositories. The original Git tests also passed with Apple Git 2.39.5, alongside Git 2.44.
 
 Git coverage includes real DAGs, refs, index/hunk staging, untracked/empty files, discard recovery, stash, merge/rebase/cherry-pick/revert, interactive rebase, protected undo/redo, local remotes, worktrees, Git Flow feature operations, path traversal and option injection. Modify/delete conflicts distinguish an absent file from a present empty file.
 
 Autostash/history tests cover staged, unstaged and untracked preservation, deferred restoration, recovery references, failures and focused navigation. Hosting tests use simulated API/CLI responses to check provider routes, authentication, remote/profile bindings, normalization and error handling. Presentation tests cover Markdown HTML/link safety, emoji aliases, large messages and supplied graph row geometry; they do not prove native layout measurements.
 
 Localization checks cover complete templates for all eight languages, matching placeholders, actual static UI/native-menu calls, safe text interpolation, consistent catalog entries, locale dates/numbers and calendar-day comparisons across daylight-saving changes. These checks do not establish native visual quality or human linguistic review.
+
+Preference-persistence checks inject a failed storage write, require restoration of the previous in-memory settings, and verify that a later unrelated save cannot reintroduce the failed language selection. Successful partial saves preserve untouched settings and repository data.
 
 Release-pipeline checks simulate native tools and certificate responses. They cover identity selection, fail-closed configuration, bounded/redacted diagnostics, signed build flags, notarization acceptance, stapling/Gatekeeper failures and final archive creation. These tests perform no real signing, Keychain lookup or Apple submission; a simulated `Accepted` response is not notarization evidence.
 
