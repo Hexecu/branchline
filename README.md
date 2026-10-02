@@ -23,6 +23,18 @@ See the [practical guide](docs/GUIDE.md) for examples using the English interfac
 
 View the native preference screen in [Deutsch](docs/screenshots/preferences-de.jpg) or [简体中文](docs/screenshots/preferences-zh.jpg).
 
+## Install on macOS
+
+Download [Branchline 0.4.0 for Apple Silicon](https://github.com/Hexecu/branchline/releases/download/v0.4.0/Branchline-0.4.0-mac-arm64.zip) and its [SHA-256 checksum](https://github.com/Hexecu/branchline/releases/download/v0.4.0/Branchline-0.4.0-mac-arm64.zip.sha256). Extract the ZIP, move **Branchline.app** into **Applications**, and open it.
+
+To check the download, keep both files in the same folder and run:
+
+```sh
+shasum -a 256 -c Branchline-0.4.0-mac-arm64.zip.sha256
+```
+
+The release is Developer ID signed and notarized by Apple, with a validated stapled ticket. On 2 October 2026, a public HTTPS download passed checksum, signature, ticket and Gatekeeper checks. A controlled quarantine test then launched the app through the normal macOS **Open** confirmation. See [macOS distribution](docs/MACOS.md) and the [validation record](docs/VALIDATION.md) for the exact scope.
+
 ## Build and run from source
 
 You need macOS, Git, Node.js 22.12 or newer, and npm. From the source checkout, install the dependencies and launch the development app:
@@ -47,7 +59,7 @@ npm run package
 
 The bundle is written to `~/Library/Caches/Branchline/build/v0.4.0/`, outside synchronized project folders. `npm run package` uses ad-hoc signing for local package integrity. If native dependency compilation fails, install the Xcode Command Line Tools and retry.
 
-The separate `npm run release:macos` workflow uses Developer ID signing and requires Apple notarization, a validated stapled ticket and Gatekeeper assessment before creating its final archive. A real Developer ID build has passed signature and package-integrity checks. **Notarization, a stapled ticket and Gatekeeper acceptance of a downloaded copy remain unverified.** See [macOS distribution](docs/MACOS.md) for the current evidence and interactive Keychain setup.
+The separate `npm run release:macos` workflow uses Developer ID signing and requires Apple notarization, a validated stapled ticket and Gatekeeper assessment before creating its final archive. The real 0.4.0 arm64 release completed these checks. See [macOS distribution](docs/MACOS.md) for the verification process and interactive Keychain setup.
 
 Open the app and choose **Explore the demo**. The **+** beside the repository tabs and the command palette also let you open the isolated demo. Existing demo changes are preserved when you reopen it.
 
