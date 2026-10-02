@@ -45,7 +45,9 @@ Create a macOS application bundle with:
 npm run package
 ```
 
-The bundle is written to `~/Library/Caches/Branchline/build/v0.4.0/`, outside synchronized project folders. Local bundles use ad-hoc signing for package integrity. **Developer ID signing and Apple notarization are pending**; an ad-hoc signature does not make a download trusted by Gatekeeper. See [macOS distribution](docs/MACOS.md) for the current packaging and verification process. If native dependency compilation fails, install the Xcode Command Line Tools and retry.
+The bundle is written to `~/Library/Caches/Branchline/build/v0.4.0/`, outside synchronized project folders. `npm run package` uses ad-hoc signing for local package integrity. If native dependency compilation fails, install the Xcode Command Line Tools and retry.
+
+The separate `npm run release:macos` workflow uses Developer ID signing and requires Apple notarization, a validated stapled ticket and Gatekeeper assessment before creating its final archive. A real Developer ID build has passed signature and package-integrity checks. **Notarization, a stapled ticket and Gatekeeper acceptance of a downloaded copy remain unverified.** See [macOS distribution](docs/MACOS.md) for the current evidence and interactive Keychain setup.
 
 Open the app and choose **Explore the demo**. The **+** beside the repository tabs and the command palette also let you open the isolated demo. Existing demo changes are preserved when you reopen it.
 

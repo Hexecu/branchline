@@ -26,7 +26,7 @@ const environment = {
 };
 const signature =
   `Authority=${identity}\nTeamIdentifier=ABCDE12345\n` +
-  "CodeDirectory=v=20500 size=123 flags=0x10000(runtime)\n" +
+  "CodeDirectory v=20500 size=644 flags=0x10000(runtime) hashes=9+7 location=embedded\n" +
   "Timestamp=Oct 2, 2026 at 12:00:00";
 
 test("release preflight rejects missing, foreign, ambiguous and non-Developer-ID identities", () => {
@@ -88,6 +88,25 @@ test("release preflight rejects missing, foreign, ambiguous and non-Developer-ID
       () => signedIdentity(invalid, { identity, teamId: "ABCDE12345" }),
       /hardened runtime/,
     );
+});
+
+test("Developer ID inspection accepts actual codesign CodeDirectory output and rejects missing or misleading runtime flags", () => {
+  const config = { identity, teamId: "ABCDE12345" };
+  signedIdentity(signature, config);
+  signedIdentity(
+    signature.replace("0x10000(runtime)", "0x10001(hard,runtime)"),
+    config,
+  );
+  for (const invalid of [
+    signature.replace("flags=0x10000(runtime)", "flags=0x0(runtime)"),
+    signature.replace("flags=0x10000(runtime)", "flags=0x10000(noruntime)"),
+    signature.replace("flags=0x10000(runtime)", "flags=0x0(none) runtime"),
+    signature.replace("flags=0x10000(runtime)", "flags=0x10000() runtime"),
+    signature.replace("CodeDirectory v=", "CodeDirectory=v="),
+    signature.replace(/CodeDirectory[^\n]+\n/, "runtime\n"),
+    signature + "\nCodeDirectory v=20500 size=644 flags=0x10000(runtime)",
+  ])
+    assert.throws(() => signedIdentity(invalid, config), /hardened runtime/);
 });
 
 test("release child environment removes unrelated credentials and errors remain bounded and redacted", () => {
@@ -252,6 +271,19 @@ for (const outcome of [
       assert.equal(submitted.options.env.API_TOKEN, undefined);
       assert.equal(submitted.options.env.CSC_LINK, undefined);
       assert.equal(submitted.options.env.APPLE_PASSWORD, undefined);
+      const requirementChecks = calls.filter(
+        (call) =>
+          call.executable === "/usr/bin/codesign" && call.args.includes("-R"),
+      );
+      assert.equal(
+        requirementChecks.length,
+        outcome === "Accepted" || outcome === "assessment-failed" ? 2 : 1,
+      );
+      for (const call of requirementChecks)
+        assert.equal(
+          call.args[call.args.indexOf("-R") + 1],
+          '=anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "ABCDE12345"',
+        );
       const finalArchive = calls.find(
         (call) =>
           call.executable === "/usr/bin/ditto" &&

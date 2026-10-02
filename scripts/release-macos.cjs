@@ -203,10 +203,23 @@ function certificatePreflight(run, config, hash, scratch) {
 
 function signedIdentity(output, config) {
   const lines = output.split("\n");
+  // codesign prints "CodeDirectory v=...", not a key/value "CodeDirectory=".
+  // Require both the actual flag bit and its exact decoded name in that field.
+  const directory = lines
+    .map((line) =>
+      /^CodeDirectory v=[\da-f]+ size=\d+ flags=0x([\da-f]{1,8})\(([a-z0-9_-]+(?:,[a-z0-9_-]+)*)\)(?: [^\r\n]+)?$/i.exec(
+        line,
+      ),
+    )
+    .filter(Boolean);
+  const hardenedRuntime =
+    directory.length === 1 &&
+    (BigInt(`0x${directory[0][1]}`) & 0x10000n) !== 0n &&
+    directory[0][2].split(",").includes("runtime");
   if (
     !lines.includes(`Authority=${config.identity}`) ||
     !lines.includes(`TeamIdentifier=${config.teamId}`) ||
-    !/^CodeDirectory=.*flags=.*\bruntime\b/m.test(output) ||
+    !hardenedRuntime ||
     !/^Timestamp=.+/m.test(output)
   )
     throw new Error(
@@ -298,7 +311,8 @@ function releaseMac({ env = process.env, checkOnly = false } = {}) {
       bundle,
     ]);
     signedIdentity(details.stdout + "\n" + details.stderr, config);
-    const requirement = `${APPLE_REQUIREMENT} and certificate leaf[subject.OU] = "${config.teamId}"`;
+    // codesign interprets -R as a filename unless the literal starts with '='.
+    const requirement = `=${APPLE_REQUIREMENT} and certificate leaf[subject.OU] = "${config.teamId}"`;
     run("Verify Apple Developer ID requirement", "/usr/bin/codesign", [
       "--verify",
       "--deep",

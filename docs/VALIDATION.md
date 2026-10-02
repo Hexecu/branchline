@@ -4,7 +4,7 @@ Validation dates: 2026-10-01–02. Desktop: macOS arm64, Electron 44.5.1. This r
 
 ## Automated checks
 
-The current local 0.4.0 `npm test` run passed **115 tests, zero failures**: the existing 98 checks (24 Git, 25 autostash/history, 17 hosting, four presentation, 14 AI adapter, seven importer and seven vault), plus seven localization, eight macOS release-pipeline and two preference-persistence tests. Git fixtures are temporary synthetic repositories. The original Git tests also passed with Apple Git 2.39.5, alongside Git 2.44.
+The current local 0.4.0 `npm test` run passed **116 tests, zero failures**: the existing 98 checks (24 Git, 25 autostash/history, 17 hosting, four presentation, 14 AI adapter, seven importer and seven vault), plus seven localization, nine macOS release-pipeline and two preference-persistence tests. Git fixtures are temporary synthetic repositories. The original Git tests also passed with Apple Git 2.39.5, alongside Git 2.44.
 
 Git coverage includes real DAGs, refs, index/hunk staging, untracked/empty files, discard recovery, stash, merge/rebase/cherry-pick/revert, interactive rebase, protected undo/redo, local remotes, worktrees, Git Flow feature operations, path traversal and option injection. Modify/delete conflicts distinguish an absent file from a present empty file.
 
@@ -78,11 +78,15 @@ Screenshots use synthetic demo or public hosting data. `workspace.jpg`, `ai-sett
 
 The original 0.3.0 build produced a macOS arm64 bundle but skipped final signing. A browser-downloaded copy was subsequently rejected as “damaged”; strict verification identified incomplete linker signatures. The 0.3.0 release now carries a download notice. Its ZIP checksum and local launch were not proof of downloaded-app trust.
 
-The new 0.4.0 packaging process builds outside synchronized source folders, removes only generated FinderInfo/ResourceFork metadata before signing, enables hardened runtime and creates a complete ad-hoc signature. `codesign --verify --deep --strict` and the package integrity checks pass. Gatekeeper assessment still rejects this ad-hoc build: Developer ID signing, Apple notarization and a stapled ticket remain pending account configuration. See [macOS distribution](MACOS.md).
+The 0.4.0 local `npm run package` process builds outside synchronized source folders, removes only generated FinderInfo/ResourceFork metadata before signing, enables hardened runtime and creates a complete ad-hoc signature. `codesign --verify --deep --strict` and the package integrity checks pass. Gatekeeper assessment rejects that ad-hoc build; these local package results do not establish distribution trust.
+
+A separate real 0.4.0 arm64 build was signed with an installed **Developer ID Application** identity. Strict deep signature verification, Apple certificate-chain and Team ID requirements, hardened runtime, secure timestamp, package integrity and the bundled native PTY probe all passed. These are real signing/build results, separate from the release-pipeline simulations above.
+
+Apple notarization acceptance, a stapled ticket and Gatekeeper acceptance of a browser-downloaded copy remain **unverified**. A local `spctl` assessment of the Developer ID bundle rejected it with `source=Unnotarized Developer ID`. The local `notarytool` Keychain profile is not yet configured, so the full `npm run release:macos` workflow has not completed. See [macOS distribution](MACOS.md) for the interactive setup and required release gates.
 
 The archived 0.3.0 GitHub CI run completed locked installation, its 98 isolated tests and the renderer build in all four Ubuntu/macOS × Node 22/24 combinations. See the [first public CI run](https://github.com/Hexecu/branchline/actions/runs/36933136620) for that source revision. It does not validate the current 0.4.0 localization or release-pipeline additions. Current 0.4.0 automated and native evidence is recorded above; the workflow also runs on subsequent pushes.
 
-The [0.4.0 source CI run](https://github.com/Hexecu/branchline/actions/runs/36973320230) passed locked installation, all 115 tests and the renderer build in all four combinations at source commit `bf9167c4bbd900a79e96061e25c3207f490945bd`. CI checks source behavior; the local native package and UI checks are recorded separately above.
+The [earlier 0.4.0 source CI run](https://github.com/Hexecu/branchline/actions/runs/36973320230) passed locked installation, all 115 tests and the renderer build in all four combinations at source commit `bf9167c4bbd900a79e96061e25c3207f490945bd`. It predates the additional release regression test and real Developer ID build checks. CI checks source behavior; the current 116-test local run and native package results are recorded separately above.
 
 ## External requirements and limits
 

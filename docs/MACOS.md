@@ -1,8 +1,10 @@
 # macOS distribution
 
-New macOS packages are configured to use a complete **ad-hoc signature**. This seals the bundle and its nested code so macOS can verify that the package has not changed. It is not an Apple Developer ID signature and is not notarized. A successful signature check does not mean Gatekeeper trusts the publisher.
+`npm run package` creates a local bundle with a complete **ad-hoc signature**. This seals the bundle and its nested code so macOS can verify that the package has not changed. It is not an Apple Developer ID signature and is not notarized. A successful signature check does not mean Gatekeeper trusts the publisher.
 
-Build with `npm run package`. Generated bundles go to `~/Library/Caches/Branchline/build/<version>/`, outside synchronized source folders. The build removes only FinderInfo and ResourceFork metadata from its generated bundle before signing; quarantine attributes are retained. The package verification script checks the finished `.app` with `codesign --verify --deep --strict`, sealed code resources, ASAR header integrity, version agreement, required locale files and matching native PTY/helper binaries. The build also runs a synthetic PTY probe in its newly generated bundle. The standalone verifier is passive and never executes an app supplied by the user. Verification must finish before creating or publishing an archive. Use `node scripts/verify-package.cjs /absolute/path/Branchline.app` to repeat it.
+The separate `npm run release:macos` workflow uses an installed **Developer ID Application** identity. A real 0.4.0 arm64 build has now passed Developer ID signing, strict signature verification, Apple certificate-chain and Team ID requirements, hardened-runtime and secure-timestamp checks, package integrity and the native PTY probe. **Apple notarization, a stapled ticket and Gatekeeper acceptance of a downloaded copy have not yet been verified.** The local notarization Keychain profile still needs to be configured; this build is not evidence of a trusted download.
+
+Build with `npm run package`. Generated bundles go to `~/Library/Caches/Branchline/build/v<version>/`, outside synchronized source folders. The build removes only FinderInfo and ResourceFork metadata from its generated bundle before signing; quarantine attributes are retained. The package verification script checks the finished `.app` with `codesign --verify --deep --strict`, sealed code resources, ASAR header integrity, version agreement, required locale files and matching native PTY/helper binaries. The build also runs a synthetic PTY probe in its newly generated bundle. The standalone verifier is passive and never executes an app supplied by the user. Verification must finish before creating or publishing an archive. Use `node scripts/verify-package.cjs /absolute/path/Branchline.app` to repeat it.
 
 The hardened runtime stays enabled. The [entitlements](../assets/entitlements.mac.plist) allow Electron's JIT engine and the library loading needed for ad-hoc signing. They do not request camera, microphone or location access. Files in a signed bundle must not be changed afterward.
 
@@ -19,8 +21,12 @@ Install a **Developer ID Application** certificate and its private key in the ma
 Save your notarization credentials yourself using the interactive Keychain flow:
 
 ```sh
-xcrun notarytool store-credentials branchline-notary
+xcrun notarytool store-credentials branchline-notary \
+  --apple-id 'you@example.com' \
+  --team-id TEAMID1234
 ```
+
+Replace the example Apple ID and Team ID with your own. With those options supplied and no password option, Apple's tool prompts securely for the app-specific password, validates it and saves the credentials in the Keychain. Enter the password at that hidden prompt, rather than in the command or repository.
 
 Then use the exact installed certificate name and the existing Keychain profile name. These two names are not passwords:
 
@@ -31,6 +37,6 @@ npm run release:macos -- --check
 npm run release:macos
 ```
 
-The first command performs an offline certificate preflight. It does not prove the Keychain profile can authenticate with Apple. The release command signs the generated app, submits it to Apple, requires an `Accepted` result, staples and validates the ticket, rechecks integrity and requires a successful Gatekeeper assessment. Only then does it create the final ZIP and checksum under `~/Library/Caches/Branchline/releases/<version>/`. It never publishes to GitHub automatically. Failed notarization, stapling or Gatekeeper checks leave no final release ZIP.
+`npm run release:macos -- --check` performs an offline certificate preflight. It does not prove the Keychain profile can authenticate with Apple. The release command signs the generated app, submits it to Apple, requires an `Accepted` result, staples and validates the ticket, rechecks integrity and requires a successful Gatekeeper assessment. Only then does it create the final ZIP and checksum under `~/Library/Caches/Branchline/releases/v<version>/`. It never publishes to GitHub automatically. Failed notarization, stapling or Gatekeeper checks leave no final release ZIP.
 
-The release pipeline's error gates have simulated regression coverage. A trusted release still requires a successful real run with the owner's configured Apple identity; simulated tests and local ad-hoc builds do not satisfy that requirement.
+The release pipeline's error gates have simulated regression coverage. Developer ID signing has also been exercised with a real identity. Notarization acceptance, ticket validation and a downloaded-app Gatekeeper check still require real results; simulated tests, local signing and checksums do not satisfy those requirements.
