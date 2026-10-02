@@ -82,6 +82,8 @@ The new 0.4.0 packaging process builds outside synchronized source folders, remo
 
 The archived 0.3.0 GitHub CI run completed locked installation, its 98 isolated tests and the renderer build in all four Ubuntu/macOS × Node 22/24 combinations. See the [first public CI run](https://github.com/Hexecu/branchline/actions/runs/36933136620) for that source revision. It does not validate the current 0.4.0 localization or release-pipeline additions. Current 0.4.0 automated and native evidence is recorded above; the workflow also runs on subsequent pushes.
 
+The [0.4.0 source CI run](https://github.com/Hexecu/branchline/actions/runs/36973320230) passed locked installation, all 115 tests and the renderer build in all four combinations at source commit `bf9167c4bbd900a79e96061e25c3207f490945bd`. CI checks source behavior; the local native package and UI checks are recorded separately above.
+
 ## External requirements and limits
 
 - OpenAI, Azure, Vertex, Google AI Studio and Bedrock adapters have automated coverage; their accounts were not exercised with real credentials.
