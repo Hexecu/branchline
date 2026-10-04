@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 const root = path.join(__dirname, "..");

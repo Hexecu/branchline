@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 export type Language =
   "en" | "it" | "es" | "fr" | "de" | "pt-BR" | "ja" | "zh-CN";
 export type TranslateParams = Record<string, string | number>;

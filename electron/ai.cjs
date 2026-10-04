@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 "use strict";
 
 // Native API references (no model-name aliases or account-access assumptions):

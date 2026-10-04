@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");

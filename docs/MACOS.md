@@ -46,3 +46,18 @@ npm run release:macos
 `npm run release:macos -- --check` performs an offline certificate preflight. It does not prove the Keychain profile can authenticate with Apple. The release command signs the generated app, submits it to Apple, requires an `Accepted` result, staples and validates the ticket, rechecks integrity and requires a successful Gatekeeper assessment. Only then does it create the final ZIP and checksum under `~/Library/Caches/Branchline/releases/v<version>/`. It never publishes to GitHub automatically. Failed notarization, stapling or Gatekeeper checks leave no final release ZIP.
 
 The release pipeline's error gates have simulated regression coverage. The real 0.4.0 arm64 release and public-download launch checks are recorded separately in [VALIDATION.md](VALIDATION.md); simulated tests and checksums alone do not establish those results.
+
+## Corresponding Source for GPL releases
+
+The current source uses **GPL-3.0-only**. The already published v0.4.0 binary and tag retain MIT; do not replace their assets or retroactively label them GPL. The license transition does not itself create a new binary release.
+
+Before publishing any future GPL binary, commit and tag the exact source used to build it. Create an archive from that tag, retaining all original source, translations, assets, `package.json`, `package-lock.json`, configuration, tests and build/install scripts:
+
+```sh
+git archive --format=tar.gz --prefix=Branchline-VERSION/ \
+  --output=Branchline-VERSION-source.tar.gz vVERSION
+```
+
+Replace `VERSION` with that new release's version. Publish this **Corresponding Source** archive at the same GitHub release as the binary, available without payment, and link it prominently in the release notes. Include the source archive in the release checksums and verify that its extracted contents pass `npm ci`, `npm test` and `npm run build`. Build instructions are in [README.md](../README.md) and [CONTRIBUTING.md](../CONTRIBUTING.md); external dependencies are pinned in the lockfile and keep their own source and license notices. Include the source of any required non-System-Library dependencies and any additional source or installation information required for the actual distributed build under GPLv3; the lockfile alone, a floating branch or an archive of a different commit does not meet this requirement.
+
+The bundled `LICENSE`, `COPYRIGHT` and `THIRD_PARTY_NOTICES.md` must be present and match the project license metadata. Package verification checks these notices before a new app can pass the release integrity gate. Signing and notarization checks are independent of the source-distribution requirement. See [GPLv3 section 6](https://www.gnu.org/licenses/gpl-3.0.html#section6).

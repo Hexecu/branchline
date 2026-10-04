@@ -51,6 +51,7 @@
       "package.json",
       "assets/**/*",
       "LICENSE",
+      "COPYRIGHT",
       "THIRD_PARTY_NOTICES.md",
       "locales/**/*"
     ],
@@ -67,7 +68,7 @@
     },
     "afterPack": "scripts/prepare-signing.cjs"
   },
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "author": "Davide Leopardi",
   "engines": {
     "node": ">=22.12.0"

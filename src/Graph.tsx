@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 import React, { useMemo } from "react";
 import type { Commit } from "./types";
 import { useI18n } from "./i18n";

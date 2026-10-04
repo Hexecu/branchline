@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 /* International UI text wraps; repository content and monospace output retain
    their existing rendering rules. CJK fonts are installed-system fallbacks. */
 :root {

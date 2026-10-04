@@ -101,3 +101,9 @@ Tests use isolated Git fixtures and mocked AI transports. Passing them does not 
 The renderer uses React and TypeScript. Electron's main process owns Git, filesystem, terminal, and provider access through an isolated IPC bridge. See the [API contract](API.md), [feature scope](docs/FEATURES.md), and [user guide](docs/GUIDE.md).
 
 Current limits include file/hunk staging rather than individual-line staging, a default graph window of 400 commits with reference-focused navigation, and read-only hosting integrations. Remote Git authentication, GPG signing, Git LFS, and AI providers require their own configuration. See [hosting profiles](docs/HOSTING.md) for remote selection, server URLs, and provider capabilities.
+
+## License
+
+The current original Branchline source, documentation, translations and assets are licensed under [GNU GPL version 3 only](LICENSE), SPDX identifier `GPL-3.0-only`. Copyright (C) 2026 Davide Leopardi. Distributed modified versions must provide their Corresponding Source under GPL-3.0-only; commercial use and redistribution are permitted. See [COPYRIGHT](COPYRIGHT) and [third-party notices](THIRD_PARTY_NOTICES.md) for scope and separate dependency licenses.
+
+The transition applies to the current source and future releases. Previously published versions, including the linked **v0.4.0** application and its source tag, remain under MIT; their existing permissions are unchanged. Future GPL binary releases must offer the exact matching source and build scripts alongside their downloads, following [macOS distribution](docs/MACOS.md#corresponding-source-for-gpl-releases).

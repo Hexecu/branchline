@@ -1,0 +1,27 @@
+Branchline
+Copyright (C) 2026 Davide Leopardi
+SPDX-License-Identifier: GPL-3.0-only
+
+Branchline is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 only.
+
+Branchline is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+Branchline. If not, see <https://www.gnu.org/licenses/>.
+
+This notice covers the current original project source, documentation,
+translations and original assets, except files with separate notices.
+Dependencies and bundled third-party components retain their own licenses;
+see THIRD_PARTY_NOTICES.md. It does not change the MIT license granted for
+previously published releases, including v0.4.0.
+
+Project source: https://github.com/Hexecu/branchline
+Releases and matching source: https://github.com/Hexecu/branchline/releases
+Every future distributed GPL binary must be accompanied by the exact
+Corresponding Source for that binary, including its build scripts, as
+documented in docs/MACOS.md. The repository's current branch alone is not
+a substitute for the matching source of a released binary.

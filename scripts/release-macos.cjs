@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 "use strict";
 
 // Run only after the owner has installed an Apple Developer ID Application

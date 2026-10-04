@@ -2,6 +2,10 @@
 
 Branchline is a visual Git desktop client built with Electron, React and TypeScript. Contributions should preserve the boundary between the renderer, the main process and the system Git executable.
 
+## Contribution license
+
+Submit original contributions under **GPL-3.0-only**, the current project license in [LICENSE](LICENSE). Keep the copyright and SPDX notices in project source files; add an accurate copyright notice for new work when appropriate. Only contribute code you have the right to license on these terms. Preserve third-party copyright and license notices when incorporating compatible code, and document its provenance in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Earlier MIT releases retain their existing license.
+
 ## Local development
 
 Use Node.js 22.12 or later, npm and Git. Node.js 22 and 24 are covered by the CI matrix on Ubuntu and macOS. Building the native terminal dependency may require a C/C++ toolchain and Python; on macOS, install Xcode Command Line Tools.

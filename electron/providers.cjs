@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 "use strict";
 
 // Read-only native hosting APIs. Credentials belong to the injected encrypted

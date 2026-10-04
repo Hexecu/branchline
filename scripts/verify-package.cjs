@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 "use strict";
 
 const fs = require("node:fs");
@@ -6,6 +9,37 @@ const os = require("node:os");
 const crypto = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const asar = require("@electron/asar");
+
+// SHA-256 of the verbatim GPLv3 text from https://www.gnu.org/licenses/gpl-3.0.txt.
+const GPL3_SHA256 =
+  "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986";
+
+function verifyProjectLicense(packageData, readFile) {
+  if (packageData.license !== "GPL-3.0-only")
+    throw new Error(
+      "The current Branchline package must declare GPL-3.0-only.",
+    );
+  const license = readFile("LICENSE");
+  if (crypto.createHash("sha256").update(license).digest("hex") !== GPL3_SHA256)
+    throw new Error(
+      "The package must include the complete, verbatim GPLv3 license.",
+    );
+  const copyright = readFile("COPYRIGHT").toString("utf8");
+  if (
+    !copyright.includes("SPDX-License-Identifier: GPL-3.0-only") ||
+    !copyright.includes("WITHOUT ANY") ||
+    !copyright.includes("https://github.com/Hexecu/branchline/releases")
+  )
+    throw new Error(
+      "The package is missing its GPL copyright and source notice.",
+    );
+  const thirdParty = readFile("THIRD_PARTY_NOTICES.md").toString("utf8");
+  if (!thirdParty.includes("GPL-3.0-only") || !thirdParty.includes("MIT"))
+    throw new Error(
+      "The package is missing its project and third-party notices.",
+    );
+  return true;
+}
 
 function verifyPackage(bundlePath, { probeNative = false } = {}) {
   if (process.platform !== "darwin")
@@ -49,6 +83,9 @@ function verifyPackage(bundlePath, { probeNative = false } = {}) {
   );
   if (packageData.version !== plist.CFBundleShortVersionString)
     throw new Error("Application and package versions do not match.");
+  const projectLicenseVerified = verifyProjectLicense(packageData, (entry) =>
+    asar.extractFile(archive, entry),
+  );
   for (const entry of [
     "electron/main.cjs",
     "electron/preload.cjs",
@@ -151,6 +188,7 @@ function verifyPackage(bundlePath, { probeNative = false } = {}) {
     version: packageData.version,
     signatureIntegrity: true,
     asarIntegrity: true,
+    projectLicenseVerified,
     nativePtyVerified: probeNative,
     notarizationVerified: false,
   };
@@ -184,4 +222,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { verifyPackage };
+module.exports = { verifyPackage, verifyProjectLicense };

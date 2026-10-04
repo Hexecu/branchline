@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 import { useEffect, useState } from "react";
 import { X, GitMerge, ArrowDown, Check, LoaderCircle } from "lucide-react";
 import type { Snapshot } from "./types";

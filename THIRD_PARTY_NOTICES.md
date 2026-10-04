@@ -1,6 +1,6 @@
 # Third-party notices
 
-The original Branchline source and branding are licensed under MIT. Dependency licenses remain their own. Dependencies are installed through npm and retain their package license files; source publication does not include node_modules or Electron binaries.
+The current original Branchline source, documentation, translations and assets are licensed under GPL-3.0-only; see [LICENSE](LICENSE) and [COPYRIGHT](COPYRIGHT). Previously published releases, including v0.4.0, retain their MIT license. Dependency licenses remain their own. Dependencies are installed through npm and retain their package license files; source publication does not include node_modules or Electron binaries.
 
 ## Direct runtime dependencies
 
@@ -19,6 +19,6 @@ The original Branchline source and branding are licensed under MIT. Dependency l
 
 The locked dependency graph is in [package-lock.json](package-lock.json). AWS SDK and Google Auth dependencies use Apache-2.0; React, terminal packages and node-pty use MIT; Lucide uses ISC. Keep the license and notice files supplied with dependencies when distributing a packaged application.
 
-Electron redistributions also include Electron LICENSE and LICENSES.chromium.html. These notices apply separately to Chromium, Node.js and other bundled components. Developer tooling is installed separately and is not covered by Branchline's MIT grant. CSS font names select installed system fonts; no third-party font files are bundled.
+Electron redistributions also include Electron LICENSE and LICENSES.chromium.html. These notices apply separately to Chromium, Node.js and other bundled components. Developer tooling is installed separately and retains its own license. CSS font names select installed system fonts; no third-party font files are bundled.
 
 [assets/icon.svg](assets/icon.svg) is the original Branchline branch motif. The PNG and ICNS icons use the same original motif. No GitKraken logo or proprietary assets are included.

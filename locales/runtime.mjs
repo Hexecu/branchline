@@ -1,3 +1,6 @@
+/* Copyright (C) 2026 Davide Leopardi
+ * SPDX-License-Identifier: GPL-3.0-only */
+
 import languages from "./languages.json" with { type: "json" };
 import core from "./core.json" with { type: "json" };
 import settings from "./settings.json" with { type: "json" };
