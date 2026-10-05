@@ -214,23 +214,39 @@ function verifyDesktop(
   let nativePtyVerified = false;
   if (probeNative) {
     const probe = `
+      process.stderr.write('native-pty:runtime ' + process.platform + '/' + process.arch + '\\n');
       const pty = require(${JSON.stringify(path.join(archive, "node_modules/node-pty"))});
+      process.stderr.write('native-pty:loaded\\n');
       const windows = process.platform === 'win32';
       let output = '';
       const terminal = pty.spawn(windows ? (process.env.COMSPEC || 'cmd.exe') : '/bin/sh', windows ? ['/d', '/s', '/c', 'echo branchline-native-ok'] : ['-c', 'printf branchline-native-ok'], {cwd: require('node:os').tmpdir(), env: process.env, cols: 80, rows: 24});
-      const timer = setTimeout(() => { terminal.kill(); process.exit(2); }, 10000);
+      process.stderr.write('native-pty:spawned\\n');
+      const timer = setTimeout(() => { process.stderr.write('native-pty:timeout\\n'); terminal.kill(); process.exit(2); }, 10000);
       terminal.onData(data => { output += data; });
       terminal.onExit(({exitCode}) => {
+        process.stderr.write('native-pty:exit ' + exitCode + '\\n');
         clearTimeout(timer);
         if (exitCode !== 0 || !output.includes('branchline-native-ok')) process.exit(3);
-        console.log(JSON.stringify({arch:process.arch, electronVersion:process.versions.electron, binaries:Object.keys(require.cache).filter(name => name.endsWith('.node'))}));
+        // The controlled one-shot probe finishes only after a real successful
+        // shell exit. ConPTY worker handles must not keep the verifier alive.
+        process.stdout.write(JSON.stringify({arch:process.arch, electronVersion:process.versions.electron, binaries:Object.keys(require.cache).filter(name => name.endsWith('.node'))}) + '\\n', () => process.exit(0));
       });
     `;
-    const stdout = execFileSync(executable, ["-e", probe], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-      encoding: "utf8",
-      timeout: 20000,
-    });
+    let stdout;
+    try {
+      stdout = execFileSync(executable, ["-e", probe], {
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+        encoding: "utf8",
+        timeout: 20000,
+      });
+    } catch (error) {
+      // This subprocess only echoes the synthetic fixture marker. Capture its
+      // output so native startup/exit failures are distinguishable in CI.
+      throw new Error(
+        `Native PTY probe failed: ${error.message}\nstdout: ${String(error.stdout || "").slice(-4000)}\nstderr: ${String(error.stderr || "").slice(-4000)}`,
+        { cause: error },
+      );
+    }
     const result = JSON.parse(stdout.trim().split(/\r?\n/).at(-1));
     if (result.arch !== arch || !result.binaries?.length)
       throw new Error("Native PTY did not report its target architecture.");
