@@ -96,10 +96,12 @@ async function acceptance() {
   const evaluate = (work, value) => bounded(() => application.evaluate(work, value), NATIVE_DEADLINE_MS + 2000, "Native fallback operation");
   const launch = async () => {
     const { _electron } = sourceRequire("playwright");
+    const launchEnv = { ...process.env, TABLELINE_DEV_URL: "", BRANCHLINE_DEV_URL: "", ...(name === "branchline" ? { BRANCHLINE_DATA_DIR: directory } : {}) };
+    delete launchEnv.ELECTRON_RUN_AS_NODE;
     application = await _electron.launch({
       executablePath: executablePath || sourceRequire("electron"),
       args: [...(packaged ? [] : [path.join(root, "electron", "main.cjs")]), `--${name}-qa`, `--${name}-data=${directory}`, "--password-store=gnome-libsecret"],
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "", TABLELINE_DEV_URL: "", BRANCHLINE_DEV_URL: "", ...(name === "branchline" ? { BRANCHLINE_DATA_DIR: directory } : {}) },
+      env: launchEnv,
       timeout: 20000,
     });
     const info = await evaluate(({ app, safeStorage }, options) => {

@@ -7,6 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
+const crypto = require("node:crypto");
 const {
   desktopPath,
   terminalShell,
@@ -18,6 +19,41 @@ const {
   noticeSnapshot,
   verifyElectronNotices,
 } = require("../scripts/verify-desktop.cjs");
+
+function noticeFixture(t) {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "branchline-notices-"));
+  t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+  const sourceRoot = path.join(temporary, "project");
+  fs.mkdirSync(path.join(sourceRoot, "assets"), { recursive: true });
+  const electronVersion = require("../package.json").devDependencies.electron;
+  const files = {
+    "LICENSE.electron.txt": Buffer.from("Synthetic Electron notice\n"),
+    "LICENSES.chromium.html": Buffer.from("<html>Synthetic Chromium notice</html>\n"),
+  };
+  const hash = (data) => crypto.createHash("sha256").update(data).digest("hex");
+  const licenses = Object.fromEntries(
+    Object.entries(files).map(([name, data]) => [
+      name,
+      { bytes: data.length, sha256: hash(data) },
+    ]),
+  );
+  const distributions = {};
+  for (const platform of ["darwin", "linux", "win32"])
+    for (const arch of ["x64", "arm64"])
+      distributions[`${platform}-${arch}`] = {
+        upstreamArchiveSha256: hash(`synthetic-archive-${platform}-${arch}`),
+        licenses,
+      };
+  fs.writeFileSync(
+    path.join(sourceRoot, "package.json"),
+    JSON.stringify({ devDependencies: { electron: electronVersion } }),
+  );
+  fs.writeFileSync(
+    path.join(sourceRoot, "assets", "electron-notices.json"),
+    JSON.stringify({ version: 2, electronVersion, distributions }),
+  );
+  return { temporary, sourceRoot, electronVersion, files };
+}
 
 test("Windows preserves drive-letter PATH entries and uses cmd without POSIX flags", () => {
   const env = {
@@ -129,80 +165,60 @@ test("reviewed Electron notices cover six native targets and reject version drif
 });
 
 test("packaged notices require exact reviewed bytes and reject tampering", (t) => {
-  const root = path.resolve(__dirname, ".."),
-    temporary = fs.mkdtempSync(path.join(os.tmpdir(), "branchline-notices-"));
-  t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
-  const directory = path.join(temporary, "resources", "licenses");
+  const fixture = noticeFixture(t);
+  const bundle = path.join(fixture.temporary, "bundle");
+  const directory = path.join(bundle, "resources", "licenses");
   fs.mkdirSync(directory, { recursive: true });
-  for (const [source, target] of [
-    ["../LICENSE", "LICENSE.electron.txt"],
-    ["LICENSES.chromium.html", "LICENSES.chromium.html"],
-  ])
-    fs.copyFileSync(
-      path.join(root, "node_modules", "electron", "dist", source),
-      path.join(directory, target),
-    );
-  const platform = process.platform === "win32" ? "win32" : "linux",
-    electronVersion = require("../package.json").devDependencies.electron;
+  for (const [name, contents] of Object.entries(fixture.files))
+    fs.writeFileSync(path.join(directory, name), contents);
+  const options = {
+    sourceRoot: fixture.sourceRoot,
+    platform: "linux",
+    arch: "x64",
+    electronVersion: fixture.electronVersion,
+  };
   assert.equal(
-    verifyElectronNotices(temporary, { platform, electronVersion }).licenses
-      .length,
+    verifyElectronNotices(bundle, options).licenses.length,
     2,
   );
-  fs.writeFileSync(path.join(directory, "LICENSE.electron.txt"), "tampered");
+  const tampered = Buffer.from(fixture.files["LICENSE.electron.txt"]);
+  tampered[0] ^= 1;
+  fs.writeFileSync(path.join(directory, "LICENSE.electron.txt"), tampered);
   assert.throws(
-    () => verifyElectronNotices(temporary, { platform, electronVersion }),
+    () => verifyElectronNotices(bundle, options),
     /does not match/,
   );
 });
 
-test("afterExtract reads the actual Linux distribution notice name", async (t) => {
-  const root = path.resolve(__dirname, ".."),
-    temporary = fs.mkdtempSync(path.join(os.tmpdir(), "branchline-extract-"));
-  t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
-  fs.mkdirSync(path.join(temporary, "resources"));
-  for (const [source, target] of [
-    ["../LICENSE", "LICENSE.electron.txt"],
-    ["LICENSES.chromium.html", "LICENSES.chromium.html"],
-  ])
-    fs.copyFileSync(
-      path.join(root, "node_modules", "electron", "dist", source),
-      path.join(temporary, target),
-    );
+test("afterExtract reads renamed Linux and Windows notices and enforces upstream hashes", async (t) => {
+  const fixture = noticeFixture(t);
   const preserve = require("../scripts/preserve-electron-notices.cjs");
-  const electronVersion = require("../package.json").devDependencies.electron;
-  if (process.platform === "win32") {
-    // The Windows Chromium notice is intentionally a different upstream file.
-    // Verify the common filename branch without accepting foreign Linux bytes.
-    await assert.rejects(
-      preserve({
-        packager: {
-          projectDir: root,
-          info: { framework: { version: electronVersion } },
-        },
-        arch: "x64",
-        electronPlatformName: "linux",
-        appOutDir: temporary,
-      }),
-      /reviewed upstream hash/,
-    );
-  } else {
-    await preserve({
+  for (const platform of ["linux", "win32"]) {
+    const bundle = path.join(fixture.temporary, platform);
+    fs.mkdirSync(path.join(bundle, "resources"), { recursive: true });
+    for (const [name, contents] of Object.entries(fixture.files))
+      fs.writeFileSync(path.join(bundle, name), contents);
+    assert.equal(fs.existsSync(path.join(bundle, "LICENSE")), false);
+    const context = {
       packager: {
-        projectDir: root,
-        info: { framework: { version: electronVersion } },
+        projectDir: fixture.sourceRoot,
+        info: { framework: { version: fixture.electronVersion } },
       },
       arch: "x64",
-      electronPlatformName: "linux",
-      appOutDir: temporary,
-    });
+      electronPlatformName: platform,
+      appOutDir: bundle,
+    };
+    await preserve(context);
     assert.equal(
-      verifyElectronNotices(temporary, {
-        platform: "linux",
+      verifyElectronNotices(bundle, {
+        sourceRoot: fixture.sourceRoot,
+        platform,
         arch: "x64",
-        electronVersion,
+        electronVersion: fixture.electronVersion,
       }).licenses.length,
       2,
     );
+    fs.writeFileSync(path.join(bundle, "LICENSES.chromium.html"), "tampered");
+    await assert.rejects(preserve(context), /reviewed upstream hash/);
   }
 });

@@ -299,6 +299,39 @@ class ProviderService {
     this.remember(value);
     return value;
   }
+  async credentialBackup(id, read = true) {
+    const encrypted =
+      typeof this.vault.snapshot === "function" &&
+      typeof this.vault.restore === "function";
+    const backup = {
+      encrypted,
+      snapshot: encrypted ? await this.vault.snapshot(id) : undefined,
+    };
+    if (
+      encrypted &&
+      backup.snapshot !== null &&
+      typeof backup.snapshot !== "string"
+    )
+      throw new Error("Snapshot credenziali non valido.");
+    if (read || !encrypted) {
+      try {
+        backup.credentials = await this.credentials(id);
+      } catch (error) {
+        // Explicit replacement can recover unsafe legacy Linux ciphertext,
+        // retaining only its encrypted bytes for a failed profile write.
+        if (error.code !== "SECURE_STORAGE_INSECURE" || !encrypted) throw error;
+        backup.credentials = {};
+      }
+    }
+    return backup;
+  }
+  async rollbackCredentials(id, backup, expected) {
+    if (backup.encrypted)
+      await this.vault.restore(id, backup.snapshot, expected);
+    else if (Object.keys(backup.credentials).length)
+      await this.vault.set(id, backup.credentials);
+    else await this.vault.delete(id);
+  }
   async load() {
     try {
       const data = JSON.parse(await fs.readFile(this.file, "utf8"));
@@ -387,24 +420,27 @@ class ProviderService {
       if (next.profiles.length >= 100)
         throw new Error("Limite di 100 profili hosting raggiunto.");
       next.profiles.push(profile);
-      let previous;
+      let backup, expected;
       if (credentials !== undefined) {
-        const clean = this.credentialInput(credentials);
-        previous = await this.credentials(profile.id);
-        if (Object.keys(credentials).length === 0)
-          await this.vault.delete(profile.id);
-        else if (Object.keys(clean).length)
-          await this.vault.set(profile.id, { ...previous, ...clean });
+        const clean = this.credentialInput(credentials),
+          replace = Object.keys(clean).length > 0,
+          clear = Object.keys(credentials).length === 0;
+        if (replace || clear) {
+          backup = await this.credentialBackup(profile.id, replace);
+          expected = replace
+            ? await this.vault.set(profile.id, {
+                ...backup.credentials,
+                ...clean,
+              })
+            : await this.vault.delete(profile.id);
+        }
       }
       try {
         await this.persist(next);
         this.state = next;
       } catch (error) {
-        if (previous !== undefined) {
-          if (Object.keys(previous).length)
-            await this.vault.set(profile.id, previous);
-          else await this.vault.delete(profile.id);
-        }
+        if (backup)
+          await this.rollbackCredentials(profile.id, backup, expected);
         throw error;
       }
       return this.settings();
@@ -417,13 +453,13 @@ class ProviderService {
         profiles: this.state.profiles.filter((row) => row.id !== id),
         bindings: this.state.bindings.filter((row) => row.profileId !== id),
       };
-      const previous = await this.credentials(id);
-      await this.vault.delete(id);
+      const backup = await this.credentialBackup(id, false),
+        expected = await this.vault.delete(id);
       try {
         await this.persist(next);
         this.state = next;
       } catch (error) {
-        if (Object.keys(previous).length) await this.vault.set(id, previous);
+        await this.rollbackCredentials(id, backup, expected);
         throw error;
       }
       return this.settings();

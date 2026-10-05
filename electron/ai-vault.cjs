@@ -20,6 +20,16 @@ const DEFAULT_TIMEOUT_MS = 8000;
 // Native OS encryption is asynchronous; updates must re-read metadata after it
 // finishes so simultaneous AI/database saves cannot discard each other's keys.
 const mutations = new Map();
+// A receipt identifies the exact in-process mutation even when two deletions
+// both yield null or two encryptions produce identical ciphertext (Linux CBC).
+const receipts = new Map();
+function mutationReceipt(file, id, ciphertext) {
+  let entries = receipts.get(file);
+  if (!entries) receipts.set(file, entries = new Map());
+  const receipt = Object.freeze({ ciphertext });
+  entries.set(id, receipt);
+  return receipt;
+}
 // A caller deadline cannot cancel Electron's native Keychain request. Keep the
 // native queue alive until that request actually settles, and quarantine the
 // shared storage object after a timeout so retries cannot stack OS prompts.
@@ -278,9 +288,9 @@ class AIVault {
         mode: 0o600,
         flag: "wx",
       });
+      await fs.chmod(temporary, 0o600);
       check(deadline);
       await fs.rename(temporary, this.file);
-      await fs.chmod(this.file, 0o600);
     } finally {
       await fs.rm(temporary, { force: true });
     }
@@ -321,6 +331,38 @@ class AIVault {
       if (fresh) nativeState(this.safeStorage).availability = false;
       throw insecureError();
     }
+  }
+  // Internal profile transactions keep encrypted rollback data without asking
+  // the OS to decrypt an entry that has already failed the safety check.
+  async snapshot(id) {
+    this.id(id);
+    const data = (await this.read()).credentials;
+    const value = Object.hasOwn(data, id) ? data[id] : null;
+    if (value !== null && typeof value !== "string")
+      throw new Error("Formato archivio credenziali non valido.");
+    return value;
+  }
+  async restore(id, snapshot, expected) {
+    this.id(id);
+    if (
+      (snapshot !== null && typeof snapshot !== "string") ||
+      !plain(expected) ||
+      (expected.ciphertext !== null && typeof expected.ciphertext !== "string")
+    ) throw new Error("Formato archivio credenziali non valido.");
+    const deadline = context(this.timeoutMs);
+    return this.mutate(async () => {
+      const latest = await this.read();
+      const current = Object.hasOwn(latest.credentials, id)
+        ? latest.credentials[id] : null;
+      // A concurrent replacement/deletion wins over an older profile rollback.
+      if (current !== expected.ciphertext || receipts.get(this.file)?.get(id) !== expected)
+        return false;
+      if (snapshot === null) delete latest.credentials[id];
+      else latest.credentials[id] = snapshot;
+      await this.persist(latest, deadline);
+      mutationReceipt(this.file, id, snapshot);
+      return true;
+    }, deadline);
   }
   async encrypt(clean, deadline) {
     const encrypted = await nativeOperation(
@@ -372,6 +414,7 @@ class AIVault {
           if (latest.credentials[id] !== encrypted) return;
           latest.credentials[id] = rotated;
           await this.persist(latest, deadline);
+          mutationReceipt(this.file, id, rotated);
         }, deadline);
       }
       return clean;
@@ -390,7 +433,7 @@ class AIVault {
       deadline = context(this.timeoutMs);
     this.assertNativeReady();
     try {
-      await this.mutate(async () => {
+      return await this.mutate(async () => {
         if (!(await this.available(deadline))) {
           this.assertNativeReady();
           throw new Error("Unavailable");
@@ -400,6 +443,7 @@ class AIVault {
         const latest = await this.read();
         latest.credentials[id] = encrypted;
         await this.persist(latest, deadline);
+        return mutationReceipt(this.file, id, encrypted);
       }, deadline);
     } catch (error) {
       if (error.code === "SECURE_STORAGE_TIMEOUT") {
@@ -420,6 +464,7 @@ class AIVault {
       const latest = await this.read();
       delete latest.credentials[id];
       await this.persist(latest, deadline);
+      return mutationReceipt(this.file, id, null);
     }, deadline);
   }
 }

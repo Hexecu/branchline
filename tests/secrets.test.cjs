@@ -560,7 +560,8 @@ test("timed-out availability quarantines all instances and retries never create 
   assert.equal(vault.status(), "blocked");
   const another = fixture(t, storage, { timeoutMs: 35 }).vault;
   assert.equal(another.status(), "blocked");
-  const retriesStarted = Date.now();
+  let yielded = false;
+  const eventLoopTimer = setTimeout(() => { yielded = true; }, 0);
   for (let index = 0; index < 10; index++) {
     assert.equal(await another.available(), false);
     await assert.rejects(
@@ -569,12 +570,13 @@ test("timed-out availability quarantines all instances and retries never create 
         error.code === "SECURE_STORAGE_BLOCKED" &&
         error.message.includes("Riavvia Branchline"),
     );
-    assert.equal(await vault.get("ai-missing"), null);
   }
-  assert(
-    Date.now() - retriesStarted < 100,
-    "blocked retries must fail immediately",
-  );
+  clearTimeout(eventLoopTimer);
+  assert.equal(yielded, false, "blocked native retries must reject before yielding to the event loop");
+  // Metadata I/O is independent of native quarantine and has no 100 ms wall
+  // clock claim on a busy Windows filesystem.
+  for (let index = 0; index < 10; index++)
+    assert.equal(await vault.get("ai-missing"), null);
   assert.deepEqual(calls, { availability: 1, encrypt: 0, decrypt: 0 });
   assert.equal(await vault.has("ai-missing"), false);
   await vault.delete("ai-missing");
@@ -849,4 +851,70 @@ test("Linux portal v12 roundtrips and OS-native v10 remains supported on macOS a
     assert.equal(vault.status(), "available");
     assertNoPlaintext(directory, [FIRST]);
   }
+});
+
+
+test("encrypted snapshots restore failed profile mutations without decrypting or losing another credential", async (t) => {
+  const storage = mockStorage(), { vault } = fixture(t, storage);
+  await vault.set("ai-first", { apiKey: FIRST });
+  await vault.set("ai-second", { apiKey: SECOND });
+  const original = await vault.snapshot("ai-first"), other = await vault.snapshot("ai-second");
+  storage.decryptStringAsync = async () => assert.fail("encrypted rollback must not decrypt");
+  const replacement = await vault.set("ai-first", { apiKey: SECOND });
+  assert.equal(replacement.ciphertext, await vault.snapshot("ai-first"), "set returns its own atomic ciphertext receipt");
+  assert.notEqual(original, replacement);
+  assert.equal(await vault.restore("ai-first", original, replacement), true);
+  assert.equal(await vault.snapshot("ai-first"), original);
+  assert.equal(await vault.snapshot("ai-second"), other);
+  const deletion = await vault.delete("ai-first");
+  assert.equal(deletion.ciphertext, null, "delete returns its own atomic absence receipt");
+  assert.equal(await vault.restore("ai-first", original, deletion), true);
+  assert.equal(await vault.snapshot("ai-first"), original);
+  assert.equal(await vault.snapshot("ai-second"), other);
+});
+
+test("encrypted rollback cannot overwrite a concurrent replacement or deletion", async (t) => {
+  const { vault } = fixture(t);
+  await vault.set("ai-existing", { apiKey: FIRST });
+  const original = await vault.snapshot("ai-existing");
+  const intermediate = await vault.set("ai-existing", { apiKey: SECOND });
+  const latest = await vault.set("ai-existing", { apiKey: FIRST });
+  const newest = await vault.snapshot("ai-existing");
+  assert.equal(await vault.restore("ai-existing", original, intermediate), false);
+  assert.equal(await vault.snapshot("ai-existing"), newest);
+  await vault.delete("ai-existing");
+  assert.equal(await vault.restore("ai-existing", original, latest), false);
+  assert.equal(await vault.snapshot("ai-existing"), null);
+});
+
+
+test("rollback cannot resurrect a credential after another vault explicitly deletes the absent entry", async t => {
+  const { directory, safeStorage, vault } = fixture(t);
+  const another = new AIVault({ directory, safeStorage });
+  await vault.set("ai-existing", { apiKey: FIRST });
+  const original = await vault.snapshot("ai-existing");
+  const removal = await vault.delete("ai-existing");
+  const laterRemoval = await another.delete("ai-existing");
+  assert.equal(removal.ciphertext, null);
+  assert.equal(laterRemoval.ciphertext, null);
+  assert.equal(await vault.restore("ai-existing", original, removal), false);
+  assert.equal(await vault.snapshot("ai-existing"), null);
+});
+
+test("rollback preserves a later save even when native encryption produces identical ciphertext", async t => {
+  const storage = mockStorage(), encrypt = storage.encryptStringAsync;
+  storage.encryptStringAsync = async value => {
+    const bytes = await encrypt(value);
+    bytes[PREFIX.length] = 0; // Model deterministic v11 CBC without touching OS storage.
+    return bytes;
+  };
+  const { directory, vault } = fixture(t, storage);
+  const another = new AIVault({ directory, safeStorage: storage });
+  await vault.set("ai-existing", { apiKey: FIRST });
+  const original = await vault.snapshot("ai-existing");
+  const replacement = await vault.set("ai-existing", { apiKey: SECOND });
+  const laterReplacement = await another.set("ai-existing", { apiKey: SECOND });
+  assert.equal(replacement.ciphertext, laterReplacement.ciphertext);
+  assert.equal(await vault.restore("ai-existing", original, replacement), false);
+  assert.deepEqual(await vault.get("ai-existing"), { apiKey: SECOND });
 });

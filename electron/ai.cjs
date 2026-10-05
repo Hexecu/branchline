@@ -401,6 +401,39 @@ class AIService {
     this.remember(result);
     return result;
   }
+  async credentialBackup(id, read = true) {
+    const encrypted =
+      typeof this.vault.snapshot === "function" &&
+      typeof this.vault.restore === "function";
+    const backup = {
+      encrypted,
+      snapshot: encrypted ? await this.vault.snapshot(id) : undefined,
+    };
+    if (
+      encrypted &&
+      backup.snapshot !== null &&
+      typeof backup.snapshot !== "string"
+    )
+      throw new Error("Snapshot credenziali non valido.");
+    if (read || !encrypted) {
+      try {
+        backup.credentials = await this.credentials(id);
+      } catch (error) {
+        // Only an explicit replacement can recover an old unsafe Linux entry.
+        // Keep its encrypted bytes for rollback; never reuse its plaintext.
+        if (error.code !== "SECURE_STORAGE_INSECURE" || !encrypted) throw error;
+        backup.credentials = {};
+      }
+    }
+    return backup;
+  }
+  async rollbackCredentials(id, backup, expected) {
+    if (backup.encrypted)
+      await this.vault.restore(id, backup.snapshot, expected);
+    else if (Object.keys(backup.credentials).length)
+      await this.vault.set(id, backup.credentials);
+    else await this.vault.delete(id);
+  }
   async settings() {
     await this.ready;
     const profiles = await Promise.all(
@@ -430,25 +463,28 @@ class AIService {
       if (next.profiles.length >= 100)
         throw new Error("Limite di 100 profili AI raggiunto.");
       next.profiles.push(profile);
-      let beforeCredentials;
+      let backup, expected;
       if (credentials !== undefined) {
-        const clean = this.cleanCredentials(credentials);
-        beforeCredentials = await this.credentials(profile.id);
+        const clean = this.cleanCredentials(credentials),
+          replace = Object.keys(clean).length > 0,
+          clear = Object.keys(credentials).length === 0;
         // UI empty fields are omitted; partial non-empty updates retain other saved fields.
         // An explicit empty object is the credential-clear operation.
-        if (Object.keys(clean).length)
-          await this.vault.set(profile.id, { ...beforeCredentials, ...clean });
-        else if (!Object.keys(credentials).length)
-          await this.vault.delete(profile.id);
+        if (replace || clear) {
+          backup = await this.credentialBackup(profile.id, replace);
+          expected = replace
+            ? await this.vault.set(profile.id, {
+                ...backup.credentials,
+                ...clean,
+              })
+            : await this.vault.delete(profile.id);
+        }
       }
       try {
         await this.persist(next);
       } catch (error) {
-        if (beforeCredentials !== undefined) {
-          if (Object.keys(beforeCredentials).length)
-            await this.vault.set(profile.id, beforeCredentials);
-          else await this.vault.delete(profile.id);
-        }
+        if (backup)
+          await this.rollbackCredentials(profile.id, backup, expected);
         throw error;
       }
       this.state = next;
@@ -469,12 +505,12 @@ class AIService {
               null
             : this.state.activeProfileId,
       };
-      const previous = await this.credentials(id);
-      await this.vault.delete(id);
+      const backup = await this.credentialBackup(id, false),
+        expected = await this.vault.delete(id);
       try {
         await this.persist(next);
       } catch (error) {
-        if (Object.keys(previous).length) await this.vault.set(id, previous);
+        await this.rollbackCredentials(id, backup, expected);
         throw error;
       }
       this.state = next;

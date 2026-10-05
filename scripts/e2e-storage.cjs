@@ -169,6 +169,11 @@ async function acceptance() {
   );
   const launch = async () => {
     const { _electron: electron } = sourceRequire("playwright");
+    const launchEnv = {
+      ...process.env, TABLELINE_DEV_URL: "", BRANCHLINE_DEV_URL: "",
+      ...(applicationName === "branchline" ? { BRANCHLINE_DATA_DIR: directory } : {}),
+    };
+    delete launchEnv.ELECTRON_RUN_AS_NODE;
     application = await electron.launch({
       executablePath: executablePath || sourceRequire("electron"),
       args: [
@@ -176,10 +181,7 @@ async function acceptance() {
         `--${applicationName}-qa`, `--${applicationName}-data=${directory}`,
         ...(process.platform === "linux" ? ["--password-store=gnome-libsecret"] : []),
       ],
-      env: {
-        ...process.env, ELECTRON_RUN_AS_NODE: "", TABLELINE_DEV_URL: "", BRANCHLINE_DEV_URL: "",
-        ...(applicationName === "branchline" ? { BRANCHLINE_DATA_DIR: directory } : {}),
-      },
+      env: launchEnv,
       timeout: 20000,
     });
     const info = await evaluate(({ app, safeStorage }, options) => {
