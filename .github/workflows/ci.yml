@@ -33,6 +33,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Audit all locked dependencies, including build tools
+        run: npm run audit
       - name: Run isolated tests
         run: npm test
       - name: Type-check and build the renderer
@@ -79,12 +81,14 @@ jobs:
       - name: Verify native runner architecture
         run: node -e "if(process.platform!=='${{ matrix.platform }}'||process.arch!=='${{ matrix.arch }}')process.exit(1)"
       - name: Set the temporary package directory
-        run: node -e "const fs=require('node:fs');const path=require('node:path');fs.appendFileSync(process.env.GITHUB_ENV,'BRANCHLINE_PACKAGE_OUTPUT='+path.join(process.env.RUNNER_TEMP,'branchline-package')+'\n')"
+        run: node -e "const fs=require('node:fs');const path=require('node:path');fs.appendFileSync(process.env.GITHUB_ENV,'BRANCHLINE_PACKAGE_OUTPUT='+path.join(process.env.RUNNER_TEMP,'branchline-package')+'\nELECTRON_BUILDER_CACHE='+path.join(process.env.RUNNER_TEMP,'branchline-builder-cache')+'\n')"
       - name: Install Linux build and desktop dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y build-essential python3 xvfb libgtk-3-0 libnss3 libasound2t64 libgbm1 dbus-x11 gnome-keyring libsecret-1-0
       - name: Install locked dependencies
         run: npm ci
+      - name: Audit all locked dependencies, including build tools
+        run: npm run audit
       - name: Test native platform source
         run: npm test
       - name: Build and verify native package and PTY

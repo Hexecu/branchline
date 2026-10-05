@@ -23,7 +23,7 @@ function packageDesktop({
     throw new Error(
       "Desktop builds require macOS, Windows or glibc Linux on x64 or arm64.",
     );
-  const output = path.resolve(
+  let output = path.resolve(
     outputDir ||
       path.join(
         os.tmpdir(),
@@ -33,6 +33,9 @@ function packageDesktop({
       ),
   );
   fs.mkdirSync(output, { recursive: true });
+  // Native module loaders report canonical paths (for example /private/var on
+  // macOS). Keep strict package/native verification on that same owned path.
+  output = fs.realpathSync(output);
   let bundle;
   if (process.platform === "darwin")
     bundle = packageMac({ outputDir: output, buildRenderer }).bundle;
@@ -52,6 +55,8 @@ function packageDesktop({
     execFileSync(
       process.execPath,
       [
+        "--require",
+        path.join(root, "scripts/builder-download.cjs"),
         require.resolve("electron-builder/out/cli/cli.js"),
         process.platform === "win32" ? "--win" : "--linux",
         "dir",
@@ -59,6 +64,11 @@ function packageDesktop({
         "--publish",
         "never",
         `--config.directories.output=${output}`,
+        ...(process.env.ELECTRON_BUILDER_CACHE
+          ? [
+              `--config.electronDownload.cache=${path.join(path.resolve(process.env.ELECTRON_BUILDER_CACHE), "electron")}`,
+            ]
+          : []),
       ],
       {
         cwd: root,
@@ -77,7 +87,10 @@ function packageDesktop({
           : `linux-${process.arch}-unpacked`,
     );
   }
-  const result = verifyDesktop(bundle, { probeNative: true, verifySource: true });
+  const result = verifyDesktop(bundle, {
+    probeNative: true,
+    verifySource: true,
+  });
   fs.writeFileSync(
     path.join(output, "desktop-verification.json"),
     JSON.stringify(result, null, 2) + "\n",

@@ -15,7 +15,8 @@
     "package": "node scripts/package-desktop.cjs",
     "package:macos": "node scripts/package-macos.cjs",
     "demo": "node scripts/demo.cjs",
-    "release:macos": "node scripts/release-macos.cjs"
+    "release:macos": "node scripts/release-macos.cjs",
+    "audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.1145.0",
@@ -37,7 +38,8 @@
     "playwright": "1.63.0",
     "prettier": "3.9.9",
     "typescript": "^5.9.3",
-    "vite": "8.3.2"
+    "vite": "8.3.2",
+    "undici": "7.30.0"
   },
   "build": {
     "appId": "local.branchline.desktop",
@@ -92,5 +94,10 @@
   "bugs": {
     "url": "https://github.com/Hexecu/branchline/issues"
   },
-  "homepage": "https://github.com/Hexecu/branchline#readme"
+  "homepage": "https://github.com/Hexecu/branchline#readme",
+  "overrides": {
+    "app-builder-lib@26.15.3": {
+      "@electron/get": "5.1.0"
+    }
+  }
 }

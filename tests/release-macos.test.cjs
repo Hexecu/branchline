@@ -332,7 +332,10 @@ test("signed packaging pins identity, disables publishing/automatic notarization
       if (name === "./verify-package.cjs")
         return {
           verifyPackage: (bundle, options) => {
-            assert.equal(bundle, path.join(temporary, "mac", "Branchline.app"));
+            assert.equal(
+              bundle,
+              path.join(fs.realpathSync(temporary), "mac", "Branchline.app"),
+            );
             assert.equal(options.probeNative, true);
             return { nativePtyVerified: true };
           },
@@ -365,7 +368,66 @@ test("signed packaging pins identity, disables publishing/automatic notarization
     assert.ok(args.includes("--config.mac.notarize=false"));
     assert.ok(args.includes("--publish"));
     assert.equal(args[args.indexOf("--publish") + 1], "never");
+    assert.equal(
+      args[args.indexOf("--require") + 1],
+      path.join(root, "scripts/builder-download.cjs"),
+    );
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }
+});
+
+test("owned package output uses the canonical directory through a symlink", (t) => {
+  const temporary = fs.mkdtempSync(
+    path.join(os.tmpdir(), "branchline-output-"),
+  );
+  t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+  const target = path.join(temporary, "owned-output");
+  const linked = path.join(temporary, "linked-output");
+  fs.mkdirSync(target);
+  fs.symlinkSync(
+    target,
+    linked,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  const module = { exports: {} },
+    calls = [];
+  function mockRequire(name) {
+    if (name === "./verify-package.cjs") return { verifyPackage: () => ({}) };
+    return require(name);
+  }
+  mockRequire.resolve = require.resolve;
+  vm.runInNewContext(
+    fs.readFileSync(path.join(root, "scripts/package-macos.cjs"), "utf8"),
+    {
+      module,
+      exports: module.exports,
+      require: mockRequire,
+      __dirname: path.join(root, "scripts"),
+      process: { ...process, platform: "darwin", arch: "x64" },
+      console,
+    },
+  );
+  const result = module.exports.packageMac({
+    outputDir: linked,
+    env: { ELECTRON_BUILDER_CACHE: path.join(temporary, "owned-cache") },
+    buildRenderer: false,
+    run: (file, args) => calls.push({ file, args }),
+    log: () => {},
+  });
+  assert.equal(result.output, fs.realpathSync(target));
+  assert.equal(
+    result.bundle,
+    path.join(fs.realpathSync(target), "mac", "Branchline.app"),
+  );
+  assert.ok(
+    calls[0].args.includes(
+      `--config.directories.output=${fs.realpathSync(target)}`,
+    ),
+  );
+  assert.ok(
+    calls[0].args.includes(
+      `--config.electronDownload.cache=${path.join(temporary, "owned-cache", "electron")}`,
+    ),
+  );
 });

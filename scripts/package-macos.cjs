@@ -24,7 +24,7 @@ function packageMac({
     throw new Error("macOS packaging requires macOS.");
   // File Provider can add Finder metadata back to bundles in Documents while
   // codesign is running. Keep generated apps outside a synchronized checkout.
-  const output = path.resolve(
+  let output = path.resolve(
     outputDir ||
       path.join(
         os.homedir(),
@@ -36,9 +36,12 @@ function packageMac({
       ),
   );
   fs.mkdirSync(output, { recursive: true });
+  output = fs.realpathSync(output);
   if (buildRenderer)
     run("npm", ["run", "build"], { cwd: root, env, stdio: "inherit" });
   const args = [
+    "--require",
+    path.join(root, "scripts/builder-download.cjs"),
     require.resolve("electron-builder/out/cli/cli.js"),
     "--mac",
     "dir",
@@ -46,6 +49,10 @@ function packageMac({
     "never",
     `--config.directories.output=${output}`,
   ];
+  if (env.ELECTRON_BUILDER_CACHE)
+    args.push(
+      `--config.electronDownload.cache=${path.join(path.resolve(env.ELECTRON_BUILDER_CACHE), "electron")}`,
+    );
   if (identity) args.push(`--config.mac.identity=${identity}`);
   if (identity && identity !== "-")
     args.push(
