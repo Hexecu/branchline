@@ -135,10 +135,7 @@ test("packaged notices require exact reviewed bytes and reject tampering", (t) =
   const directory = path.join(temporary, "resources", "licenses");
   fs.mkdirSync(directory, { recursive: true });
   for (const [source, target] of [
-    [
-      process.platform === "darwin" ? "LICENSE" : "LICENSE.electron.txt",
-      "LICENSE.electron.txt",
-    ],
+    ["../LICENSE", "LICENSE.electron.txt"],
     ["LICENSES.chromium.html", "LICENSES.chromium.html"],
   ])
     fs.copyFileSync(
@@ -165,10 +162,7 @@ test("afterExtract reads the actual Linux distribution notice name", async (t) =
   t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
   fs.mkdirSync(path.join(temporary, "resources"));
   for (const [source, target] of [
-    [
-      process.platform === "darwin" ? "LICENSE" : "LICENSE.electron.txt",
-      "LICENSE.electron.txt",
-    ],
+    ["../LICENSE", "LICENSE.electron.txt"],
     ["LICENSES.chromium.html", "LICENSES.chromium.html"],
   ])
     fs.copyFileSync(

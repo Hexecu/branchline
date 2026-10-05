@@ -13,7 +13,7 @@ const { AIVault } = require("../electron/ai-vault.cjs");
 const FIRST = "unit-test-secret-first-725b";
 const SECOND = "unit-test-secret-second-a861";
 const PROVIDER_ERROR = "unit-test-secret-provider-error-304c";
-const PREFIX = Buffer.from("fixture-cipher:");
+const PREFIX = Buffer.from("v11fixture-cipher:");
 
 function mockStorage(overrides = {}) {
   let generation = 0;
@@ -761,4 +761,92 @@ test("quarantine is scoped to the native storage identity without poisoning inde
   assert.deepEqual(await independent.get("ai-separate"), { apiKey: FIRST });
   assert.equal(independent.status(), "available");
   assert.equal(blocked.status(), "blocked");
+});
+
+function cipherStorage(prefix) {
+  const storage = mockStorage(), encrypt = storage.encryptStringAsync,
+    decrypt = storage.decryptStringAsync;
+  storage.encryptStringAsync = async value => {
+    const bytes = await encrypt(value);
+    return Buffer.concat([Buffer.from(prefix), bytes.subarray(3)]);
+  };
+  storage.decryptStringAsync = async value =>
+    decrypt(Buffer.concat([Buffer.from("v11"), value.subarray(3)]));
+  return storage;
+}
+
+test("Linux refuses public fixed-key and unknown cipher formats despite configured GNOME availability", async (t) => {
+  for (const prefix of ["v10", "v99"]) {
+    const storage = cipherStorage(prefix), encrypt = storage.encryptStringAsync;
+    let encryptions = 0;
+    storage.encryptStringAsync = async value => { encryptions++; return encrypt(value); };
+    const { directory, vault } = fixture(t, storage, { platform: "linux" });
+    assert.equal(await vault.available(), true, "backend label is only provisional");
+    await assert.rejects(vault.set("ai-weak", { apiKey: FIRST }), { code: "SECURE_STORAGE_INSECURE" });
+    assert.equal(vault.status(), "unavailable");
+    assert.equal(await vault.available(), false);
+    await rejectsWithoutSecret(() => vault.set("ai-retry", { apiKey: SECOND }));
+    assert.equal(encryptions, 1, "weak native provider must not be retried");
+    assert.deepEqual(diskFiles(directory), []);
+  }
+});
+
+test("Linux fallback on overwrite preserves safe ciphertext and leaves metadata deletion usable", async (t) => {
+  const storage = mockStorage();
+  const { directory, vault } = fixture(t, storage, { platform: "linux" });
+  await vault.set("ai-existing", { apiKey: FIRST });
+  const before = fs.readFileSync(vault.file);
+  storage.encryptStringAsync = cipherStorage("v10").encryptStringAsync;
+  await assert.rejects(vault.set("ai-existing", { apiKey: SECOND }), { code: "SECURE_STORAGE_INSECURE" });
+  assert.deepEqual(fs.readFileSync(vault.file), before);
+  const another = new AIVault({ directory, safeStorage: storage, platform: "linux" });
+  assert.equal(await another.available(), false);
+  assert.equal(await another.has("ai-existing"), true);
+  await another.delete("ai-existing");
+  assert.equal(await vault.has("ai-existing"), false);
+  assertNoPlaintext(directory, [FIRST, SECOND]);
+});
+
+test("Linux never decrypts old weak ciphertext and permits safe credential reimport", async (t) => {
+  for (const prefix of ["v10", "v99"]) {
+    const storage = mockStorage(), decrypt = storage.decryptStringAsync;
+    let decryptions = 0;
+    storage.decryptStringAsync = async value => { decryptions++; return decrypt(value); };
+    const { vault } = fixture(t, storage, { platform: "linux" });
+    await vault.set("ai-existing", { apiKey: FIRST });
+    const data = JSON.parse(fs.readFileSync(vault.file, "utf8"));
+    const bytes = Buffer.from(data.credentials["ai-existing"], "base64");
+    data.credentials["ai-existing"] = Buffer.concat([Buffer.from(prefix), bytes.subarray(3)]).toString("base64");
+    fs.writeFileSync(vault.file, JSON.stringify(data));
+    const before = fs.readFileSync(vault.file);
+    await assert.rejects(vault.get("ai-existing"), { code: "SECURE_STORAGE_INSECURE" });
+    assert.equal(decryptions, 0);
+    assert.deepEqual(fs.readFileSync(vault.file), before);
+    await vault.set("ai-existing", { apiKey: SECOND });
+    assert.deepEqual(await vault.get("ai-existing"), { apiKey: SECOND });
+    assert.equal(decryptions, 1);
+  }
+});
+
+test("Linux rotation cannot return credentials or persist a weak replacement", async (t) => {
+  const storage = mockStorage(), decrypt = storage.decryptStringAsync;
+  const { vault, directory } = fixture(t, storage, { platform: "linux" });
+  await vault.set("ai-rotate", { apiKey: FIRST });
+  const before = fs.readFileSync(vault.file);
+  storage.decryptStringAsync = async value => ({ ...(await decrypt(value)), shouldReEncrypt: true });
+  storage.encryptStringAsync = cipherStorage("v10").encryptStringAsync;
+  await assert.rejects(vault.get("ai-rotate"), { code: "SECURE_STORAGE_INSECURE" });
+  assert.deepEqual(fs.readFileSync(vault.file), before);
+  assert.equal(vault.status(), "unavailable");
+  assertNoPlaintext(directory, [FIRST]);
+});
+
+test("Linux portal v12 roundtrips and OS-native v10 remains supported on macOS and Windows", async (t) => {
+  for (const [platform, prefix] of [["linux", "v12"], ["darwin", "v10"], ["win32", "v10"]]) {
+    const { vault, directory } = fixture(t, cipherStorage(prefix), { platform });
+    await vault.set("ai-valid", { apiKey: FIRST });
+    assert.deepEqual(await vault.get("ai-valid"), { apiKey: FIRST });
+    assert.equal(vault.status(), "available");
+    assertNoPlaintext(directory, [FIRST]);
+  }
 });

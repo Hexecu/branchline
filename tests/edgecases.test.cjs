@@ -21,12 +21,14 @@ async function fixture(t, directory = "repo") {
     service = new GitService();
   t.after(() => fs.rm(temp, { recursive: true, force: true }));
   await fs.mkdir(repo);
+  const globalConfig = path.join(temp, "empty-gitconfig");
+  await fs.writeFile(globalConfig, "");
   const git = async (...args) =>
     (
       await exec("git", ["-C", repo, ...args], {
         env: {
           ...process.env,
-          GIT_CONFIG_GLOBAL: os.devNull,
+          GIT_CONFIG_GLOBAL: globalConfig,
           GIT_CONFIG_NOSYSTEM: "1",
           GIT_TERMINAL_PROMPT: "0",
         },
@@ -36,6 +38,7 @@ async function fixture(t, directory = "repo") {
   await git("config", "user.name", "Edge Fixture");
   await git("config", "user.email", "edge@example.invalid");
   await git("config", "commit.gpgsign", "false");
+  await git("config", "core.autocrlf", "false");
   await git("config", "core.hooksPath", path.join(temp, "empty-hooks"));
   const write = (file, content) => fs.writeFile(path.join(repo, file), content);
   const commit = async () => {

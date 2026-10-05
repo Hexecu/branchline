@@ -19,12 +19,14 @@
     "{operation} in corso": "{operation} in progress",
     "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.": "System credential storage has a pending request. Restart Branchline before trying again.",
     "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.": "System credential storage did not respond in time. Restart Branchline before trying again.",
-    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Credentials could not be protected in system storage. They will not be saved as plaintext."
+    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Credentials could not be protected in system storage. They will not be saved as plaintext.",
+    "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali.": "Linux credential encryption is not secure. Unlock the keyring, reopen the app and import the credentials again."
   },
   "it": {
     "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.": "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.",
     "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.": "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.",
-    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro."
+    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.",
+    "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali.": "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali."
   },
   "es": {
     "Apri Branchline come applicazione desktop per usare Git.": "Abre Branchline como aplicación de escritorio para usar Git.",
@@ -46,7 +48,8 @@
     "{operation} in corso": "{operation} en curso",
     "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.": "El almacén de credenciales del sistema tiene una solicitud pendiente. Reinicia Branchline antes de volver a intentarlo.",
     "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.": "El almacén de credenciales del sistema no respondió a tiempo. Reinicia Branchline antes de volver a intentarlo.",
-    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "No se pudieron proteger las credenciales en el almacén del sistema. No se guardarán en texto plano."
+    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "No se pudieron proteger las credenciales en el almacén del sistema. No se guardarán en texto plano.",
+    "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali.": "El cifrado de credenciales de Linux no es seguro. Desbloquea el llavero, vuelve a abrir la aplicación e importa las credenciales de nuevo."
   },
   "fr": {
     "Apri Branchline come applicazione desktop per usare Git.": "Ouvrez Branchline comme application de bureau pour utiliser Git.",
@@ -68,7 +71,8 @@
     "{operation} in corso": "{operation} en cours",
     "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.": "Le stockage des identifiants du système a une demande en attente. Redémarrez Branchline avant de réessayer.",
     "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.": "Le stockage des identifiants du système n’a pas répondu à temps. Redémarrez Branchline avant de réessayer.",
-    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Impossible de protéger les identifiants dans le stockage du système. Ils ne seront pas enregistrés en clair."
+    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Impossible de protéger les identifiants dans le stockage du système. Ils ne seront pas enregistrés en clair.",
+    "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali.": "Le chiffrement des identifiants sous Linux n’est pas sûr. Déverrouillez le trousseau, rouvrez l’application et importez à nouveau les identifiants."
   },
   "de": {
     "Apri Branchline come applicazione desktop per usare Git.": "Öffne Branchline als Desktop-App, um Git zu verwenden.",
@@ -90,7 +94,8 @@
     "{operation} in corso": "{operation} läuft",
     "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.": "Der Anmeldedatenspeicher des Systems hat eine ausstehende Anfrage. Starte Branchline neu, bevor du es erneut versuchst.",
     "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.": "Der Anmeldedatenspeicher des Systems hat nicht rechtzeitig geantwortet. Starte Branchline neu, bevor du es erneut versuchst.",
-    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Die Anmeldedaten konnten nicht im Systemspeicher geschützt werden. Sie werden nicht im Klartext gespeichert."
+    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Die Anmeldedaten konnten nicht im Systemspeicher geschützt werden. Sie werden nicht im Klartext gespeichert.",
+    "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali.": "Die Verschlüsselung der Zugangsdaten unter Linux ist nicht sicher. Entsperren Sie den Schlüsselbund, öffnen Sie die App erneut und importieren Sie die Zugangsdaten noch einmal."
   },
   "pt-BR": {
     "Apri Branchline come applicazione desktop per usare Git.": "Abra o Branchline como aplicativo de desktop para usar o Git.",
@@ -112,7 +117,8 @@
     "{operation} in corso": "{operation} em andamento",
     "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.": "O armazenamento de credenciais do sistema tem uma solicitação pendente. Reinicie o Branchline antes de tentar novamente.",
     "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.": "O armazenamento de credenciais do sistema não respondeu a tempo. Reinicie o Branchline antes de tentar novamente.",
-    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Não foi possível proteger as credenciais no armazenamento do sistema. Elas não serão salvas em texto simples."
+    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "Não foi possível proteger as credenciais no armazenamento do sistema. Elas não serão salvas em texto simples.",
+    "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali.": "A criptografia de credenciais do Linux não é segura. Desbloqueie o chaveiro, reabra o aplicativo e importe as credenciais novamente."
   },
   "ja": {
     "Apri Branchline come applicazione desktop per usare Git.": "Git を使うには、Branchline をデスクトップアプリとして開いてください。",
@@ -134,7 +140,8 @@
     "{operation} in corso": "{operation} を実行中",
     "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.": "システムのキーチェーンへの要求が保留中です。Branchline を再起動してから再試行してください。",
     "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.": "システムのキーチェーンが制限時間内に応答しませんでした。Branchline を再起動してから再試行してください。",
-    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "システムのキーチェーンで認証情報を保護できませんでした。平文では保存されません。"
+    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "システムのキーチェーンで認証情報を保護できませんでした。平文では保存されません。",
+    "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali.": "Linux の認証情報の暗号化は安全ではありません。キーリングを解除し、アプリを再起動して認証情報を再インポートしてください。"
   },
   "zh-CN": {
     "Apri Branchline come applicazione desktop per usare Git.": "请以桌面应用方式打开 Branchline 以使用 Git。",
@@ -156,6 +163,7 @@
     "{operation} in corso": "正在执行 {operation}",
     "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.": "系统凭据存储仍有待处理的请求。请重启 Branchline 后再试。",
     "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.": "系统凭据存储未在规定时间内响应。请重启 Branchline 后再试。",
-    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "无法在系统存储中保护凭据。凭据不会以明文保存。"
+    "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.": "无法在系统存储中保护凭据。凭据不会以明文保存。",
+    "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali.": "Linux 凭据加密不安全。请解锁密钥环，重新打开应用并再次导入凭据。"
   }
 }

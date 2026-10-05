@@ -16,7 +16,6 @@ const untrackedName =
   process.platform === "win32" ? "new ☘.txt" : "new \n☘.txt";
 const env = {
   ...process.env,
-  GIT_CONFIG_GLOBAL: os.devNull,
   GIT_CONFIG_NOSYSTEM: "1",
   GIT_TERMINAL_PROMPT: "0",
   GIT_EDITOR: "true",
@@ -25,7 +24,10 @@ const env = {
 async function gitAt(repo, ...args) {
   return (
     await exec("git", ["-C", repo, "-c", "commit.gpgSign=false", ...args], {
-      env,
+      env: {
+        ...env,
+        GIT_CONFIG_GLOBAL: path.join(path.dirname(repo), "empty-gitconfig"),
+      },
     })
   ).stdout;
 }
@@ -34,6 +36,7 @@ async function fixture(t) {
     await fs.mkdtemp(path.join(os.tmpdir(), "branchline-autostash-")),
   );
   t.after(() => fs.rm(temp, { recursive: true, force: true }));
+  await fs.writeFile(path.join(temp, "empty-gitconfig"), "");
   const repo = path.join(temp, "repo"),
     service = new GitService();
   await service.init(repo);
@@ -41,6 +44,7 @@ async function fixture(t) {
   await git("config", "user.name", "Autostash QA");
   await git("config", "user.email", "qa@example.invalid");
   await git("config", "commit.gpgSign", "false");
+  await git("config", "core.autocrlf", "false");
   await git("config", "core.hooksPath", path.join(temp, "no-hooks"));
   const write = async (file, content) => {
     await fs.mkdir(path.dirname(path.join(repo, file)), { recursive: true });

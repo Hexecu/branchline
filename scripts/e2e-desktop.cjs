@@ -42,9 +42,11 @@ async function main() {
   };
   try {
     await fs.mkdir(repo);
+    const globalConfig = path.join(temporary, "empty-gitconfig");
+    await fs.writeFile(globalConfig, "");
     const env = {
       ...process.env,
-      GIT_CONFIG_GLOBAL: os.devNull,
+      GIT_CONFIG_GLOBAL: globalConfig,
       GIT_CONFIG_NOSYSTEM: "1",
       GIT_TERMINAL_PROMPT: "0",
     };

@@ -108,6 +108,9 @@ jobs:
       - name: Test real Windows credential backend
         if: runner.os == 'Windows'
         run: node scripts/e2e-storage-packaged.cjs
+      - name: Reject the real insecure Linux credential fallback
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/e2e-storage-fallback.cjs
       - name: Retain verification reports only
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -117,5 +120,6 @@ jobs:
             ${{ runner.temp }}/branchline-package/desktop-verification.json
             artifacts/desktop/report.json
             artifacts/e2e/storage/packaged-*/report.json
+            artifacts/e2e/storage-fallback/**/report.json
           if-no-files-found: warn
           retention-days: 14

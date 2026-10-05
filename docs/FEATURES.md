@@ -39,7 +39,7 @@ Autostash defaults on for checkout, merge, rebase and pull, with an opt-out in P
 - Hosting adapters expose read-only lists, with up to 50 results. Bitbucket Cloud/Server do not expose native issues; Azure lists project work items rather than repository issues. Custom server versions, permissions and authentication gateways are not universally validated. Jira and Trello adapters are not implemented.
 - GitKraken Cloud Workspaces, Team Launchpad, Insights and organization-wide conflict awareness depend on services that Branchline does not reproduce.
 - AI discovery is a catalog, not proof of inference access. Azure deployment names and Vertex Gemini IDs are entered manually. Requests use the exact selected model without an alternative-model fallback.
-- The packaged build currently targets macOS. Ad-hoc signature integrity is checked before distribution; Developer ID signing and notarization are not provided. Windows/Linux packaging is outside the recorded release validation. See [MACOS.md](MACOS.md).
+- Native package verification covers macOS, Linux and Windows on x64/arm64; see the exact systems and acceptance boundaries in [PLATFORMS.md](PLATFORMS.md). CI packages are temporary verification builds. The historical macOS arm64 release has its own Developer ID and notarization checks in [MACOS.md](MACOS.md); those do not establish publisher trust for new packages on other systems.
 
 The project does not include proprietary GitKraken source, branding or assets. Its original icon is separate from the Lucide interface icons. Fonts use CSS family names and system fallbacks; no font binaries are bundled.
 

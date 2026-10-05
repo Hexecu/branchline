@@ -21,6 +21,8 @@ async function fixture(t) {
   const events = [],
     service = new GitService((event) => events.push(event));
   t.after(() => fs.rm(temp, { recursive: true, force: true }));
+  const globalConfig = path.join(temp, "empty-gitconfig");
+  await fs.writeFile(globalConfig, "");
   await service.init(repo);
   await service.action(repo, "identity", {
     name: "Integration Test",
@@ -31,13 +33,14 @@ async function fixture(t) {
       await exec("git", ["-C", repo, "-c", "commit.gpgSign=false", ...args], {
         env: {
           ...process.env,
-          GIT_CONFIG_GLOBAL: os.devNull,
+          GIT_CONFIG_GLOBAL: globalConfig,
           GIT_CONFIG_NOSYSTEM: "1",
           GIT_TERMINAL_PROMPT: "0",
         },
       })
     ).stdout.trim();
   await git("config", "commit.gpgSign", "false");
+  await git("config", "core.autocrlf", "false");
   await git("config", "core.hooksPath", path.join(temp, "empty-hooks"));
   const write = (filename, text) =>
     fs.writeFile(path.join(repo, filename), text);

@@ -67,6 +67,13 @@ function blockedError() {
 function nativeReady(state) {
   if (state.blocked) throw blockedError();
 }
+function insecureError() {
+  const error = new Error(
+    "La cifratura credenziali di Linux non è sicura. Sblocca il portachiavi, riapri l’app e importa nuovamente le credenziali.",
+  );
+  error.code = "SECURE_STORAGE_INSECURE";
+  return error;
+}
 function plain(value) {
   return (
     value &&
@@ -209,8 +216,9 @@ class AIVault {
         ).then((result) => {
           nativeReady(state);
           let available = result === true;
-          // This Linux metadata getter does not initialize encryption. Refuse
-          // the documented hardcoded-password backend, with no cleartext fallback.
+          // Backend metadata is only a preliminary check: async Chromium can
+          // report GNOME yet silently fall back to its public fixed key. Actual
+          // Linux ciphertext is checked before saving or decrypting below.
           if (available && this.platform === "linux") {
             available =
               typeof storage.getSelectedStorageBackend === "function" &&
@@ -300,6 +308,20 @@ class AIVault {
     const data = (await this.read()).credentials;
     return Object.hasOwn(data, id) && typeof data[id] === "string";
   }
+  assertSecureCiphertext(encrypted, fresh = false) {
+    // Electron 44 / Chromium 152: v11 is SecretService/KWallet, v12 is
+    // SecretPortal. Linux v10 uses a public fixed key; unknown formats also
+    // fail closed. macOS/Windows v10 belongs to different, secure OS providers.
+    if (
+      this.platform === "linux" &&
+      !["v11", "v12"].includes(encrypted.subarray(0, 3).toString("utf8"))
+    ) {
+      // A newly generated weak cipher proves this native provider unavailable.
+      // An old weak entry alone must not prevent importing a safe replacement.
+      if (fresh) nativeState(this.safeStorage).availability = false;
+      throw insecureError();
+    }
+  }
   async encrypt(clean, deadline) {
     const encrypted = await nativeOperation(
       this.safeStorage,
@@ -308,6 +330,7 @@ class AIVault {
     );
     if (!Buffer.isBuffer(encrypted) || !encrypted.length)
       throw new Error("Cifratura non valida.");
+    this.assertSecureCiphertext(encrypted, true);
     return encrypted.toString("base64");
   }
   async get(id) {
@@ -324,10 +347,12 @@ class AIVault {
       );
     }
     try {
+      const ciphertext = Buffer.from(encrypted, "base64");
+      this.assertSecureCiphertext(ciphertext);
       const decrypted = await nativeOperation(
         this.safeStorage,
         () =>
-          this.safeStorage.decryptStringAsync(Buffer.from(encrypted, "base64")),
+          this.safeStorage.decryptStringAsync(ciphertext),
         deadline,
       );
       if (
@@ -353,6 +378,7 @@ class AIVault {
     } catch (error) {
       if (error.code === "SECURE_STORAGE_TIMEOUT") throw timeoutError();
       if (error.code === "SECURE_STORAGE_BLOCKED") throw blockedError();
+      if (error.code === "SECURE_STORAGE_INSECURE") throw insecureError();
       throw new Error(
         "Impossibile sbloccare le credenziali AI. Importale nuovamente nel profilo.",
       );
@@ -381,6 +407,7 @@ class AIVault {
         throw timeoutError();
       }
       if (error.code === "SECURE_STORAGE_BLOCKED") throw blockedError();
+      if (error.code === "SECURE_STORAGE_INSECURE") throw insecureError();
       throw new Error(
         "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.",
       );

@@ -11,6 +11,8 @@ const asar = require("@electron/asar");
 const { verifyPackage, verifyProjectLicense } = require("./verify-package.cjs");
 const root = path.resolve(__dirname, "..");
 const hash = (data) => crypto.createHash("sha256").update(data).digest("hex");
+const archiveFile = (archive, entry) =>
+  asar.extractFile(archive, entry.split("/").join(path.sep));
 
 function sourceFiles(directory = root) {
   const entries = [
@@ -182,17 +184,15 @@ function verifyDesktop(
     throw new Error("Packaged Electron executable has the wrong architecture.");
   const archive = path.join(resources, "app.asar");
   const packageData = JSON.parse(
-    asar.extractFile(archive, "package.json").toString("utf8"),
+    archiveFile(archive, "package.json").toString("utf8"),
   );
-  verifyProjectLicense(packageData, (entry) =>
-    asar.extractFile(archive, entry),
-  );
+  verifyProjectLicense(packageData, (entry) => archiveFile(archive, entry));
   const sourceEntries = verifySource ? sourceFiles() : [];
   for (const entry of sourceEntries)
     if (
-      !asar
-        .extractFile(archive, entry)
-        .equals(fs.readFileSync(path.join(root, entry)))
+      !archiveFile(archive, entry).equals(
+        fs.readFileSync(path.join(root, entry)),
+      )
     )
       throw new Error(
         `Packaged source differs from the build checkout: ${entry}`,
@@ -204,7 +204,7 @@ function verifyDesktop(
     "electron/platform.cjs",
     "locales/runtime.mjs",
   ])
-    if (!asar.extractFile(archive, entry).length)
+    if (!archiveFile(archive, entry).length)
       throw new Error(`Missing packaged runtime: ${entry}`);
   const mac =
     process.platform === "darwin"

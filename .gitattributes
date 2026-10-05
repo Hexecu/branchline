@@ -1,0 +1,6 @@
+# Keep source and the verbatim GPL notice identical across native runners.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.icns binary
+*.woff2 binary
