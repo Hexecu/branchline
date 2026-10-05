@@ -83,6 +83,10 @@ import ToolsPanel from "./Tools";
 import AISettings from "./AISettings";
 import HostingSettings, { HostingIntegration } from "./HostingSettings";
 import ConflictPanel from "./Conflict";
+const macOS =
+  typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
+const shortcutLabel = (label: string) =>
+  macOS ? label : label.replace(/⌘\s?/g, "Ctrl+");
 import type {
   Snapshot,
   Bootstrap,
@@ -1826,7 +1830,11 @@ function App() {
       onClick={() => menu && setMenu(null)}
     >
       <header className="titlebar">
-        <div className="traffic-space" />
+        {macOS ? (
+          <div className="traffic-space" />
+        ) : (
+          <div style={{ width: 14 }} />
+        )}
         <div className="brand">
           <div className="brand-mark">
             <GitFork size={19} />
@@ -1907,7 +1915,7 @@ function App() {
           </button>
           <button
             className="icon-button"
-            title={t("Palette comandi (⌘K)")}
+            title={shortcutLabel(t("Palette comandi (⌘K)"))}
             onClick={() => {
               setPalette(true);
               setPaletteSearch("");
@@ -2018,7 +2026,7 @@ function App() {
         >
           <Search size={15} />
           <span>{t("Cerca un comando…")}</span>
-          <kbd>{"⌘ K"}</kbd>
+          <kbd>{shortcutLabel("⌘ K")}</kbd>
         </button>
         <button
           title={t("Tutte le operazioni Git")}
@@ -2072,7 +2080,7 @@ function App() {
               >
                 <FolderOpen size={17} />
                 {t("Apri repository")}
-                <kbd>{"⌘ O"}</kbd>
+                <kbd>{shortcutLabel("⌘ O")}</kbd>
               </button>
               <button
                 className="secondary"
@@ -2851,11 +2859,11 @@ function App() {
                           <X size={12} />
                         </button>
                       )}
-                      <kbd>{"⌘ F"}</kbd>
+                      <kbd>{shortcutLabel("⌘ F")}</kbd>
                     </div>
                     <button
                       className="icon-button"
-                      title={t("Aggiorna (⌘R)")}
+                      title={shortcutLabel(t("Aggiorna (⌘R)"))}
                       disabled={busy}
                       onClick={() => void refresh()}
                     >
@@ -3598,7 +3606,7 @@ function App() {
                                 { count: formatNumber(staged.length) },
                               )}
                         </span>
-                        <kbd>⌘ ↵</kbd>
+                        <kbd>{shortcutLabel("⌘ ↵")}</kbd>
                       </button>
                       <div className="commit-foot">
                         <ShieldCheck size={12} />
@@ -4273,7 +4281,7 @@ function App() {
                 {
                   title: t("Apri repository"),
                   icon: FolderOpen,
-                  key: "⌘ O",
+                  key: shortcutLabel("⌘ O"),
                   fn: () => void openRepo(),
                 },
                 {
@@ -4301,7 +4309,7 @@ function App() {
                 {
                   title: t("Aggiorna repository"),
                   icon: RefreshCw,
-                  key: "⌘ R",
+                  key: shortcutLabel("⌘ R"),
                   fn: () => void refresh(),
                 },
                 {

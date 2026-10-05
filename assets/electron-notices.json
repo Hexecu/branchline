@@ -1,0 +1,84 @@
+{
+  "version": 2,
+  "electronVersion": "44.5.1",
+  "distributions": {
+    "darwin-arm64": {
+      "upstreamArchiveSha256": "1d75703019bb16461ae65f3081d7e6f5c0b11e901d0ccb5c343bcf7bcdd6435c",
+      "licenses": {
+        "LICENSE.electron.txt": {
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d",
+          "bytes": 1096
+        },
+        "LICENSES.chromium.html": {
+          "sha256": "a62dabd1c6ef1327365b2a3fdffb806222684a746dcb8f4afd1c1f690eba5535",
+          "bytes": 20111209
+        }
+      }
+    },
+    "darwin-x64": {
+      "upstreamArchiveSha256": "e567d13833d0e161d7749727355b98643461df3395b537cfa7bdddf8a8bfedff",
+      "licenses": {
+        "LICENSE.electron.txt": {
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d",
+          "bytes": 1096
+        },
+        "LICENSES.chromium.html": {
+          "sha256": "a62dabd1c6ef1327365b2a3fdffb806222684a746dcb8f4afd1c1f690eba5535",
+          "bytes": 20111209
+        }
+      }
+    },
+    "linux-arm64": {
+      "upstreamArchiveSha256": "ee1790d743af1abd6a7e3971589dcd8635b58dab51ca1359123ba5216ce3a453",
+      "licenses": {
+        "LICENSE.electron.txt": {
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d",
+          "bytes": 1096
+        },
+        "LICENSES.chromium.html": {
+          "sha256": "a62dabd1c6ef1327365b2a3fdffb806222684a746dcb8f4afd1c1f690eba5535",
+          "bytes": 20111209
+        }
+      }
+    },
+    "linux-x64": {
+      "upstreamArchiveSha256": "5bcd217611d6843ececd6c9e9c1fcd1da3ab066c43d8b1a9e4b44689a1fba6f5",
+      "licenses": {
+        "LICENSE.electron.txt": {
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d",
+          "bytes": 1096
+        },
+        "LICENSES.chromium.html": {
+          "sha256": "a62dabd1c6ef1327365b2a3fdffb806222684a746dcb8f4afd1c1f690eba5535",
+          "bytes": 20111209
+        }
+      }
+    },
+    "win32-arm64": {
+      "upstreamArchiveSha256": "6ba86d5d5cfdf4ce61d51e2d270eaca464a7f88c143d14c6d9b3f43bb0760e9e",
+      "licenses": {
+        "LICENSE.electron.txt": {
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d",
+          "bytes": 1096
+        },
+        "LICENSES.chromium.html": {
+          "sha256": "7b328b8c7463ac9bfc7dc648c751533517c8441a0b5b21047d6c0b2620e60d70",
+          "bytes": 20472830
+        }
+      }
+    },
+    "win32-x64": {
+      "upstreamArchiveSha256": "9b382492dcfee91f8f9e92c91f7972550a1b95d2299cac72279dab33a600d7db",
+      "licenses": {
+        "LICENSE.electron.txt": {
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d",
+          "bytes": 1096
+        },
+        "LICENSES.chromium.html": {
+          "sha256": "7b328b8c7463ac9bfc7dc648c751533517c8441a0b5b21047d6c0b2620e60d70",
+          "bytes": 20472830
+        }
+      }
+    }
+  }
+}

@@ -23,6 +23,7 @@ const { ProviderService } = require("./providers.cjs");
 const { AIVault } = require("./ai-vault.cjs");
 const { profilesFromFile } = require("./ai-import.cjs");
 const { saveSettings } = require("./settings.cjs");
+const { desktopPath, terminalShell, windowChrome } = require("./platform.cjs");
 const { createDemo } = require("../scripts/demo.cjs");
 const {
   LANGUAGES,
@@ -41,17 +42,7 @@ app.setName("Branchline");
 if (process.env.BRANCHLINE_DATA_DIR)
   app.setPath("userData", path.resolve(process.env.BRANCHLINE_DATA_DIR));
 // Finder-launched apps inherit a sparse PATH; preserve user's credentials/SSH agent.
-process.env.PATH = [
-  ...new Set([
-    process.env.PATH || "",
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-    "/usr/bin",
-    "/bin",
-    "/usr/sbin",
-    "/sbin",
-  ]),
-].join(":");
+process.env.PATH = desktopPath();
 const defaults = {
   theme: "dark",
   fontSize: 13,
@@ -380,7 +371,8 @@ async function invoke(method, p = {}) {
         );
       }
       const id = randomUUID();
-      const terminal = pty.spawn(process.env.SHELL || "/bin/zsh", ["-l"], {
+      const { file, args } = terminalShell();
+      const terminal = pty.spawn(file, args, {
         name: "xterm-256color",
         cols: 100,
         rows: 18,
@@ -407,8 +399,7 @@ function makeWindow() {
     minHeight: 700,
     title: "Branchline",
     backgroundColor: "#171b22",
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 14, y: 18 },
+    ...windowChrome(),
     icon: path.join(__dirname, "../assets/icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),

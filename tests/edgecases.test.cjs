@@ -47,9 +47,16 @@ async function fixture(t, directory = "repo") {
 
 test("literal filenames survive rename, porcelain, quoted hunks and empty untracked staging", async (t) => {
   const { repo, service, git, write, commit } = await fixture(t);
-  const original = "before\tname.txt",
-    renamed = "after\nname.txt",
-    quoted = 'leaf 🍃 "quote".txt';
+  // Windows forbids literal tabs, newlines and double quotes in file names.
+  // Retain the same rename/literal-path/hunk assertions using legal names there.
+  const original =
+      process.platform === "win32" ? "before name.txt" : "before\tname.txt",
+    renamed =
+      process.platform === "win32" ? "after name.txt" : "after\nname.txt",
+    quoted =
+      process.platform === "win32"
+        ? "leaf 🍃 'quote'.txt"
+        : 'leaf 🍃 "quote".txt';
   for (const file of [
     original,
     quoted,
@@ -83,7 +90,12 @@ test("literal filenames survive rename, porcelain, quoted hunks and empty untrac
   });
   assert.equal(await git("show", ":" + quoted), "baseline\nnew line\n");
   for (const [file, content] of [
-    ['fresh\nleaf 🍃\t"note".txt', "one\ntwo"],
+    [
+      process.platform === "win32"
+        ? "fresh leaf 🍃 'note'.txt"
+        : 'fresh\nleaf 🍃\t"note".txt',
+      "one\ntwo",
+    ],
     ["empty.txt", ""],
   ]) {
     await write(file, content);
@@ -95,13 +107,21 @@ test("literal filenames survive rename, porcelain, quoted hunks and empty untrac
   }
 });
 
-test("repository names retain trailing whitespace instead of trimming filesystem paths", async (t) => {
-  const { repo, service, write, commit } = await fixture(t, "workspace \n");
-  await write("notes.txt", "exact path\n");
-  await commit();
-  assert.equal((await service.snapshot(repo)).path, repo);
-  assert.equal(await service.file(repo, "notes.txt", "HEAD"), "exact path\n");
-});
+test(
+  "repository names retain trailing whitespace instead of trimming filesystem paths",
+  {
+    skip:
+      process.platform === "win32" &&
+      "Windows filesystems do not support trailing whitespace/newlines in directory names",
+  },
+  async (t) => {
+    const { repo, service, write, commit } = await fixture(t, "workspace \n");
+    await write("notes.txt", "exact path\n");
+    await commit();
+    assert.equal((await service.snapshot(repo)).path, repo);
+    assert.equal(await service.file(repo, "notes.txt", "HEAD"), "exact path\n");
+  },
+);
 
 test("shell-shaped references stay literal while option and traversal inputs are refused", async (t) => {
   const { temp, repo, service, git, write, commit } = await fixture(t);
@@ -140,7 +160,11 @@ test("shell-shaped references stay literal while option and traversal inputs are
   const outside = path.join(temp, "outside");
   await fs.mkdir(outside);
   await fs.writeFile(path.join(outside, "secret.txt"), "keep this content\n");
-  await fs.symlink(outside, path.join(repo, "escape"));
+  await fs.symlink(
+    outside,
+    path.join(repo, "escape"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
   await assert.rejects(
     service.action(repo, "stage", { files: ["escape/secret.txt"] }),
     /outside/,

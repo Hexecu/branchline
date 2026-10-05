@@ -119,7 +119,7 @@ function parseWorktrees(text) {
   function push() {
     if (current.path)
       rows.push({
-        path: current.path,
+        path: path.normalize(current.path),
         head: current.head || "",
         branch: current.branch || "",
         bare: !!current.bare,
@@ -807,7 +807,15 @@ class GitService {
       script,
       `const fs=require('node:fs');const path=require('node:path');const dir=__dirname;const [mode,target]=process.argv.slice(2);if(mode==='sequence'){fs.copyFileSync(path.join(dir,'todo'),target);}else{const plan=JSON.parse(fs.readFileSync(path.join(dir,'plan.json'),'utf8'));const gitdir=fs.readFileSync(path.join(dir,'gitdir'),'utf8');const done=fs.readFileSync(path.join(gitdir,'rebase-merge','done'),'utf8').trim().split('\\n').map(line=>line.split(' '));let message=null;const last=done.at(-1);if(last&&last[0]==='reword'){message=plan.find(row=>row.hash===last[1])?.message;}else if(last&&['squash','fixup'].includes(last[0])){for(let i=done.length-1;i>=0&&['squash','fixup'].includes(done[i][0]);i--){if(done[i][0]==='squash'){message=plan.find(row=>row.hash===done[i][1])?.message;if(message)break;}}}if(message)fs.writeFileSync(target,message+'\\n');}`,
     );
-    const quote = (text) => "'" + text.replace(/'/g, "'\\''") + "'";
+    // Git for Windows invokes editors through its POSIX shell. Forward slashes
+    // keep Windows executable paths literal inside the same single-quote guard.
+    const quote = (text) =>
+      "'" +
+      (process.platform === "win32" ? text.replace(/\\/g, "/") : text).replace(
+        /'/g,
+        "'\\''",
+      ) +
+      "'";
     const editor = `ELECTRON_RUN_AS_NODE=1 ${quote(process.execPath)} ${quote(script)}`;
     const state = path.join(gitdir, "branchline", "rebase", "current.json");
     await fs.writeFile(state, JSON.stringify({ directory, editor }));

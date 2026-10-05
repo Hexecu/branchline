@@ -37,3 +37,85 @@ jobs:
         run: npm test
       - name: Type-check and build the renderer
         run: npm run build
+
+  native-desktop:
+    name: Desktop / ${{ matrix.platform }} / ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            platform: darwin
+            arch: x64
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+          - os: ubuntu-24.04
+            platform: linux
+            arch: x64
+          - os: ubuntu-24.04-arm
+            platform: linux
+            arch: arm64
+          - os: windows-2025
+            platform: win32
+            arch: x64
+          - os: windows-11-arm
+            platform: win32
+            arch: arm64
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up native Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify native runner architecture
+        run: node -e "if(process.platform!=='${{ matrix.platform }}'||process.arch!=='${{ matrix.arch }}')process.exit(1)"
+      - name: Set the temporary package directory
+        run: node -e "const fs=require('node:fs');const path=require('node:path');fs.appendFileSync(process.env.GITHUB_ENV,'BRANCHLINE_PACKAGE_OUTPUT='+path.join(process.env.RUNNER_TEMP,'branchline-package')+'\n')"
+      - name: Install Linux build and desktop dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential python3 xvfb libgtk-3-0 libnss3 libasound2t64 libgbm1 dbus-x11 gnome-keyring libsecret-1-0
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Test native platform source
+        run: npm test
+      - name: Build and verify native package and PTY
+        run: npm run package
+      - name: Configure only the temporary Linux package sandbox helper
+        if: runner.os == 'Linux'
+        run: |
+          sandbox="${BRANCHLINE_PACKAGE_OUTPUT}/${{ matrix.arch == 'x64' && 'linux-unpacked' || 'linux-arm64-unpacked' }}/chrome-sandbox"
+          test -f "$sandbox" && test ! -L "$sandbox"
+          sudo chown root:root "$sandbox"
+          sudo chmod 4755 "$sandbox"
+      - name: Test packaged desktop on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:desktop
+      - name: Test packaged desktop on macOS or Windows
+        if: runner.os != 'Linux'
+        run: npm run test:desktop
+      - name: Test real disposable Linux credential backend
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/e2e-storage-packaged.cjs
+      - name: Test real Windows credential backend
+        if: runner.os == 'Windows'
+        run: node scripts/e2e-storage-packaged.cjs
+      - name: Retain verification reports only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/branchline-package/desktop-verification.json
+            artifacts/desktop/report.json
+            artifacts/e2e/storage/packaged-*/report.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -983,7 +983,7 @@ export default function AISettings({
                 <span>
                   {error === "Assegna un nome al profilo."
                     ? t("Assegna un nome al profilo.")
-                    : error}
+                    : t(error)}
                 </span>
               </div>
             )}

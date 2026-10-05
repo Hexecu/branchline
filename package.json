@@ -1,6 +1,6 @@
 {
   "name": "branchline",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "A local-first visual Git desktop client",
   "main": "electron/main.cjs",
@@ -9,9 +9,11 @@
     "dev": "node scripts/dev.cjs",
     "build": "tsc --noEmit && vite build",
     "start": "electron .",
-    "test": "node --test tests/*.test.cjs",
+    "test": "node scripts/test.cjs",
+    "test:desktop": "node scripts/e2e-desktop.cjs",
     "format": "prettier --write src electron scripts tests vite.config.mts",
-    "package": "node scripts/package-macos.cjs",
+    "package": "node scripts/package-desktop.cjs",
+    "package:macos": "node scripts/package-macos.cjs",
     "demo": "node scripts/demo.cjs",
     "release:macos": "node scripts/release-macos.cjs"
   },
@@ -32,6 +34,7 @@
     "@types/react-dom": "^19.2.0",
     "electron": "44.5.1",
     "electron-builder": "^26.0.12",
+    "playwright": "1.63.0",
     "prettier": "3.9.9",
     "typescript": "^5.9.3",
     "vite": "8.3.2"
@@ -44,6 +47,7 @@
       "node_modules/node-pty/**/*"
     ],
     "beforePack": "scripts/before-pack.cjs",
+    "afterExtract": "scripts/preserve-electron-notices.cjs",
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -65,6 +69,14 @@
       "hardenedRuntime": true,
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist"
+    },
+    "linux": {
+      "category": "Development",
+      "icon": "assets/icon.png",
+      "executableName": "branchline"
+    },
+    "win": {
+      "signAndEditExecutable": false
     },
     "afterPack": "scripts/prepare-signing.cjs"
   },

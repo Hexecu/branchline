@@ -795,7 +795,7 @@ export default function HostingSettings({
             {error && (
               <div className="hosting-error" role="alert">
                 <AlertTriangle size={16} />
-                <pre>{error}</pre>
+                <pre>{t(error)}</pre>
               </div>
             )}
             {notice && (
@@ -992,7 +992,7 @@ export function HostingIntegration({
           <AlertTriangle size={16} />
           <div>
             <strong>{t("Connessione non disponibile")}</strong>
-            <pre>{error}</pre>
+            <pre>{t(error)}</pre>
             <button onClick={() => setReload((value) => value + 1)}>
               {t("Riprova")}
             </button>

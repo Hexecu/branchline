@@ -12,6 +12,8 @@ const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 const { GitService } = require("../electron/git.cjs");
 const exec = promisify(execFile);
+const untrackedName =
+  process.platform === "win32" ? "new ☘.txt" : "new \n☘.txt";
 const env = {
   ...process.env,
   GIT_CONFIG_GLOBAL: os.devNull,
@@ -60,7 +62,7 @@ async function dirty(f) {
   await f.write("local.txt", "staged local\n");
   await f.git("add", "--", "local.txt");
   await f.write("local.txt", "unstaged local\n");
-  await f.write("new \n☘.txt", "untracked with no final newline");
+  await f.write(untrackedName, "untracked with no final newline");
   await f.write("ignored/private.txt", "ignored private work\n");
   return f.git("status", "--porcelain=v1", "-z", "--untracked-files=all");
 }
@@ -71,7 +73,7 @@ async function restored(f, expectedStatus) {
     "unstaged local\n",
   );
   assert.equal(
-    await fs.readFile(path.join(f.repo, "new \n☘.txt"), "utf8"),
+    await fs.readFile(path.join(f.repo, untrackedName), "utf8"),
     "untracked with no final newline",
   );
   assert.equal(
@@ -96,7 +98,7 @@ async function assertRecovery(f, state, expectListed) {
     "unstaged local\n",
   );
   assert.equal(
-    await f.git("show", `${state.ref}^3:new \n☘.txt`),
+    await f.git("show", `${state.ref}^3:${untrackedName}`),
     "untracked with no final newline",
   );
   assert.equal(
@@ -196,7 +198,7 @@ test("checkout failure retains the stable stash/ref without automatically reappl
   assert.equal(state.awaitingOperation, null);
   assert.equal((await f.git("rev-parse", "HEAD")).trim(), f.base);
   assert.equal(await f.git("show", ":local.txt"), "base local\n");
-  await assert.rejects(fs.access(path.join(f.repo, "new \n☘.txt")));
+  await assert.rejects(fs.access(path.join(f.repo, untrackedName)));
   await assertRecovery(f, state, true);
   await new GitService().action(f.repo, "stash.apply", {
     ref: state.ref,
@@ -318,7 +320,7 @@ test("restore conflicts keep the target checkout and stash available, expose con
   // Explicitly discard this fixture's attempted application, return to the
   // original branch, then recover from the stable ref rather than stash ordinal.
   await f.git("reset", "--hard", target);
-  await fs.rm(path.join(f.repo, "new \n☘.txt"), { force: true });
+  await fs.rm(path.join(f.repo, untrackedName), { force: true });
   await f.service.action(f.repo, "branch.checkout", { name: "main" });
   await f.service.action(f.repo, "stash.apply", {
     ref: state.ref,
@@ -352,7 +354,7 @@ for (const operation of ["merge", "rebase"]) {
       assert.equal((await f.service.snapshot(f.repo)).operation, operation);
       assert.equal(state.awaitingOperation, operation);
       assert.equal(await f.git("show", ":local.txt"), "base local\n");
-      await assert.rejects(fs.access(path.join(f.repo, "new \n☘.txt")));
+      await assert.rejects(fs.access(path.join(f.repo, untrackedName)));
       await assertRecovery(f, state, true);
       if (finish === "continue")
         await f.service.action(f.repo, "conflict.resolve", {

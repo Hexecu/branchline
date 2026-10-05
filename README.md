@@ -1,6 +1,6 @@
 # Branchline
 
-A local-first Git desktop client for macOS. See your commit graph, prepare changes, manage branches, and use a real terminal in one workspace.
+A local-first Git desktop client. See your commit graph, prepare changes, manage branches, and use a real terminal in one workspace. The current source has native verification lanes for macOS, glibc Linux and Windows on x64 and arm64; see [platform scope and acceptance checks](docs/PLATFORMS.md). The published download below is the historical macOS Apple Silicon release.
 
 Branchline runs Git on your computer. Its demo is a real, isolated repository with branches, merges, tags, stashes, worktrees, and a local remote, so you can try the workflow before opening your own projects.
 
@@ -37,7 +37,7 @@ The release is Developer ID signed and notarized by Apple, with a validated stap
 
 ## Build and run from source
 
-You need macOS, Git, Node.js 22.12 or newer, and npm. From the source checkout, install the dependencies and launch the development app:
+You need a supported macOS, Windows or glibc Linux desktop, Git, Node.js 22.12 or newer, and npm. From the source checkout, install the dependencies and launch the development app:
 
 ```sh
 npm ci
@@ -51,13 +51,13 @@ npm run build
 npm start
 ```
 
-Create a macOS application bundle with:
+Create a native application package for the current OS and CPU with:
 
 ```sh
 npm run package
 ```
 
-The bundle is written to `~/Library/Caches/Branchline/build/v0.4.0/`, outside synchronized project folders. `npm run package` uses ad-hoc signing for local package integrity. If native dependency compilation fails, install the Xcode Command Line Tools and retry.
+The package is written outside the checkout to the OS temporary directory, or to `BRANCHLINE_PACKAGE_OUTPUT` when set. It checks the actual executable architecture, GPL notices and native PTY runtime. macOS uses ad-hoc signing for local package integrity. Build prerequisites, six native CI targets and verification limits are documented in [PLATFORMS.md](docs/PLATFORMS.md). `npm run package:macos` retains the macOS-only cache/signing path.
 
 The separate `npm run release:macos` workflow uses Developer ID signing and requires Apple notarization, a validated stapled ticket and Gatekeeper assessment before creating its final archive. The real 0.4.0 arm64 release completed these checks. See [macOS distribution](docs/MACOS.md) for the verification process and interactive Keychain setup.
 

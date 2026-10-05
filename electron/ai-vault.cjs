@@ -1,9 +1,9 @@
-/* Copyright (C) 2026 Davide Leopardi
- * SPDX-License-Identifier: GPL-3.0-only */
+// Copyright (c) 2026 Davide Leopardi
+// SPDX-License-Identifier: GPL-3.0-only
 
 "use strict";
 
-const fs = require("node:fs");
+const fs = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 
@@ -15,12 +15,156 @@ const fields = new Set([
   "sessionToken",
   "serviceAccount",
 ]);
+const DEFAULT_TIMEOUT_MS = 8000;
+// All vault instances in this process share the mutation queue for one file.
+// Native OS encryption is asynchronous; updates must re-read metadata after it
+// finishes so simultaneous AI/database saves cannot discard each other's keys.
+const mutations = new Map();
+// A caller deadline cannot cancel Electron's native Keychain request. Keep the
+// native queue alive until that request actually settles, and quarantine the
+// shared storage object after a timeout so retries cannot stack OS prompts.
+const nativeStates = new WeakMap();
+const nativeMethods = [
+  "isAsyncEncryptionAvailable",
+  "encryptStringAsync",
+  "decryptStringAsync",
+];
+function supported(storage) {
+  return (
+    storage &&
+    ["object", "function"].includes(typeof storage) &&
+    nativeMethods.every((method) => typeof storage[method] === "function")
+  );
+}
+function nativeState(storage) {
+  let state = nativeStates.get(storage);
+  if (!state) {
+    state = {
+      availability: null,
+      availabilityPromise: null,
+      pending: 0,
+      blocked: false,
+      queue: Promise.resolve(),
+      blockedListeners: new Set(),
+    };
+    nativeStates.set(storage, state);
+  }
+  return state;
+}
+function blockNative(state) {
+  if (state.blocked) return;
+  state.blocked = true;
+  for (const listener of state.blockedListeners) listener();
+  state.blockedListeners.clear();
+}
+function blockedError() {
+  const error = new Error(
+    "Il portachiavi del sistema ha una richiesta ancora sospesa. Riavvia Branchline prima di riprovare.",
+  );
+  error.code = "SECURE_STORAGE_BLOCKED";
+  return error;
+}
+function nativeReady(state) {
+  if (state.blocked) throw blockedError();
+}
+function plain(value) {
+  return (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    [Object.prototype, null].includes(Object.getPrototypeOf(value))
+  );
+}
+function timeoutError() {
+  const error = new Error(
+    "Il portachiavi del sistema non risponde entro il tempo massimo. Riavvia Branchline prima di riprovare.",
+  );
+  error.code = "SECURE_STORAGE_TIMEOUT";
+  return error;
+}
+function context(timeoutMs) {
+  return { expiresAt: Date.now() + timeoutMs, cancelled: false };
+}
+function check(deadline) {
+  if (deadline.cancelled || Date.now() >= deadline.expiresAt)
+    throw timeoutError();
+}
+async function bounded(operation, deadline, onTimeout) {
+  check(deadline);
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(() => {
+        check(deadline);
+        return operation();
+      }),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => {
+            deadline.cancelled = true;
+            reject(timeoutError());
+            onTimeout?.();
+          },
+          Math.max(1, deadline.expiresAt - Date.now()),
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function nativeOperation(storage, operation, deadline) {
+  const state = nativeState(storage);
+  nativeReady(state);
+  check(deadline);
+  state.pending++;
+  const task = state.queue.then(() => {
+    nativeReady(state);
+    check(deadline);
+    return operation();
+  });
+  // Do not replace this queue with the deadline race: an OS operation can keep
+  // running after its caller timed out. No other native call may overlap it.
+  state.queue = task.then(
+    () => {
+      state.pending--;
+    },
+    () => {
+      state.pending--;
+    },
+  );
+  let rejectBlocked;
+  const interrupted = new Promise((_, reject) => {
+    rejectBlocked = () => reject(blockedError());
+    state.blockedListeners.add(rejectBlocked);
+  });
+  try {
+    return await bounded(
+      () => Promise.race([task, interrupted]),
+      deadline,
+      () => blockNative(state),
+    );
+  } finally {
+    state.blockedListeners.delete(rejectBlocked);
+  }
+}
 
 class AIVault {
-  constructor({ directory, safeStorage }) {
+  constructor({
+    directory,
+    safeStorage,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    platform = process.platform,
+  }) {
+    if (typeof directory !== "string" || !directory || directory.includes("\0"))
+      throw new Error("Percorso archivio credenziali non valido.");
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000)
+      throw new Error("Timeout portachiavi non valido.");
     this.directory = path.resolve(directory);
     this.file = path.join(this.directory, "credentials.json");
     this.safeStorage = safeStorage;
+    this.timeoutMs = timeoutMs;
+    this.platform = platform;
   }
   id(id) {
     if (
@@ -31,21 +175,68 @@ class AIVault {
       throw new Error("Identificativo del profilo AI non valido.");
     return id;
   }
-  available() {
-    return (
-      this.safeStorage?.isEncryptionAvailable() &&
-      this.safeStorage.getSelectedStorageBackend?.() !== "basic_text"
-    );
+  status() {
+    if (!supported(this.safeStorage)) return "unavailable";
+    const state = nativeState(this.safeStorage);
+    if (state.blocked) return "blocked";
+    if (state.pending) return "pending";
+    if (state.availability === true) return "available";
+    if (state.availability === false) return "unavailable";
+    return "unknown";
   }
-  read() {
+  assertNativeReady() {
+    if (supported(this.safeStorage)) nativeReady(nativeState(this.safeStorage));
+  }
+  quarantinePendingNative() {
+    if (!supported(this.safeStorage)) return;
+    const state = nativeState(this.safeStorage);
+    if (state.pending) blockNative(state);
+  }
+  async available(deadline = context(this.timeoutMs)) {
+    const storage = this.safeStorage;
+    // Never call synchronous encryption APIs, including the synchronous
+    // availability probe: they can block Electron while Keychain requests input.
+    if (!supported(storage)) return false;
+    const state = nativeState(storage);
+    if (state.blocked) return false;
+    if (state.availability !== null) return state.availability;
     try {
-      const data = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      if (
-        data.version !== 1 ||
-        !data.credentials ||
-        typeof data.credentials !== "object" ||
-        Array.isArray(data.credentials)
-      )
+      if (!state.availabilityPromise) {
+        state.availabilityPromise = nativeOperation(
+          storage,
+          () => storage.isAsyncEncryptionAvailable(),
+          deadline,
+        ).then((result) => {
+          nativeReady(state);
+          let available = result === true;
+          // This Linux metadata getter does not initialize encryption. Refuse
+          // the documented hardcoded-password backend, with no cleartext fallback.
+          if (available && this.platform === "linux") {
+            available =
+              typeof storage.getSelectedStorageBackend === "function" &&
+              !["basic_text", "unknown"].includes(
+                storage.getSelectedStorageBackend(),
+              );
+          }
+          state.availability = available;
+          return available;
+        });
+      }
+      return await bounded(
+        () => state.availabilityPromise,
+        deadline,
+        () => blockNative(state),
+      );
+    } catch (error) {
+      if (error.code === "SECURE_STORAGE_TIMEOUT") blockNative(state);
+      else if (!state.blocked) state.availability = false;
+      return false;
+    }
+  }
+  async read() {
+    try {
+      const data = JSON.parse(await fs.readFile(this.file, "utf8"));
+      if (!plain(data) || data.version !== 1 || !plain(data.credentials))
         throw new Error("invalid");
       return data;
     } catch (error) {
@@ -56,12 +247,7 @@ class AIVault {
     }
   }
   validate(credentials) {
-    if (
-      !credentials ||
-      typeof credentials !== "object" ||
-      Array.isArray(credentials) ||
-      ![Object.prototype, null].includes(Object.getPrototypeOf(credentials))
-    )
+    if (!plain(credentials))
       throw new Error("Formato delle credenziali AI non valido.");
     const clean = {};
     for (const [key, value] of Object.entries(credentials)) {
@@ -73,67 +259,167 @@ class AIVault {
       throw new Error("Credenziali AI troppo grandi.");
     return clean;
   }
-  persist(data) {
-    fs.mkdirSync(this.directory, { recursive: true, mode: 0o700 });
-    fs.chmodSync(this.directory, 0o700);
-    const tmp = this.file + "." + randomUUID() + ".tmp";
+  async persist(data, deadline) {
+    check(deadline);
+    await fs.mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await fs.chmod(this.directory, 0o700);
+    const temporary = this.file + "." + randomUUID() + ".tmp";
     try {
-      fs.writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 });
-      fs.renameSync(tmp, this.file);
-      fs.chmodSync(this.file, 0o600);
+      check(deadline);
+      await fs.writeFile(temporary, JSON.stringify(data), {
+        mode: 0o600,
+        flag: "wx",
+      });
+      check(deadline);
+      await fs.rename(temporary, this.file);
+      await fs.chmod(this.file, 0o600);
     } finally {
-      if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+      await fs.rm(temporary, { force: true });
     }
   }
-  has(id) {
-    const data = this.read().credentials;
-    return Object.hasOwn(data, this.id(id)) && typeof data[id] === "string";
+  async mutate(operation, deadline) {
+    const previous = mutations.get(this.file) || Promise.resolve();
+    const task = previous
+      .catch(() => {})
+      .then(() => {
+        check(deadline);
+        return operation();
+      });
+    mutations.set(this.file, task);
+    task
+      .finally(() => {
+        if (mutations.get(this.file) === task) mutations.delete(this.file);
+      })
+      .catch(() => {});
+    // A request waiting behind a blocked native operation also has a deadline.
+    // Cancelling its context prevents the queued callback from persisting later.
+    return bounded(() => task, deadline);
   }
-  get(id) {
-    const data = this.read().credentials;
-    const encrypted = Object.hasOwn(data, this.id(id)) ? data[id] : null;
+  async has(id) {
+    this.id(id);
+    const data = (await this.read()).credentials;
+    return Object.hasOwn(data, id) && typeof data[id] === "string";
+  }
+  async encrypt(clean, deadline) {
+    const encrypted = await nativeOperation(
+      this.safeStorage,
+      () => this.safeStorage.encryptStringAsync(JSON.stringify(clean)),
+      deadline,
+    );
+    if (!Buffer.isBuffer(encrypted) || !encrypted.length)
+      throw new Error("Cifratura non valida.");
+    return encrypted.toString("base64");
+  }
+  async get(id) {
+    this.id(id);
+    const deadline = context(this.timeoutMs);
+    const data = (await this.read()).credentials;
+    const encrypted = Object.hasOwn(data, id) ? data[id] : null;
     if (!encrypted) return null;
-    if (!this.available())
+    this.assertNativeReady();
+    if (!(await this.available(deadline))) {
+      this.assertNativeReady();
       throw new Error(
         "La protezione credenziali del sistema non è disponibile. Sblocca il portachiavi e riapri Branchline.",
       );
+    }
     try {
-      const parsed = JSON.parse(
-        this.safeStorage.decryptString(Buffer.from(encrypted, "base64")),
+      const decrypted = await nativeOperation(
+        this.safeStorage,
+        () =>
+          this.safeStorage.decryptStringAsync(Buffer.from(encrypted, "base64")),
+        deadline,
       );
-      return this.validate(parsed);
-    } catch {
+      if (
+        !plain(decrypted) ||
+        typeof decrypted.result !== "string" ||
+        typeof decrypted.shouldReEncrypt !== "boolean"
+      )
+        throw new Error("Decifratura non valida.");
+      const clean = this.validate(JSON.parse(decrypted.result));
+      if (decrypted.shouldReEncrypt) {
+        // Re-encrypt with the current key, keeping the old ciphertext intact on
+        // errors/timeouts. A concurrent replacement/deletion always wins over
+        // rotation of the older value, including across in-process instances.
+        const rotated = await this.encrypt(clean, deadline);
+        await this.mutate(async () => {
+          const latest = await this.read();
+          if (latest.credentials[id] !== encrypted) return;
+          latest.credentials[id] = rotated;
+          await this.persist(latest, deadline);
+        }, deadline);
+      }
+      return clean;
+    } catch (error) {
+      if (error.code === "SECURE_STORAGE_TIMEOUT") throw timeoutError();
+      if (error.code === "SECURE_STORAGE_BLOCKED") throw blockedError();
       throw new Error(
         "Impossibile sbloccare le credenziali AI. Importale nuovamente nel profilo.",
       );
     }
   }
-  set(id, credentials) {
+  async set(id, credentials) {
     this.id(id);
-    const clean = this.validate(credentials);
-    if (!this.available())
-      throw new Error(
-        "Il portachiavi del sistema non è disponibile: le credenziali non verranno salvate in chiaro.",
-      );
-    let encrypted;
+    const clean = this.validate(credentials),
+      deadline = context(this.timeoutMs);
+    this.assertNativeReady();
     try {
-      encrypted = this.safeStorage
-        .encryptString(JSON.stringify(clean))
-        .toString("base64");
-    } catch {
+      await this.mutate(async () => {
+        if (!(await this.available(deadline))) {
+          this.assertNativeReady();
+          throw new Error("Unavailable");
+        }
+        const encrypted = await this.encrypt(clean, deadline);
+        check(deadline);
+        const latest = await this.read();
+        latest.credentials[id] = encrypted;
+        await this.persist(latest, deadline);
+      }, deadline);
+    } catch (error) {
+      if (error.code === "SECURE_STORAGE_TIMEOUT") {
+        this.quarantinePendingNative();
+        throw timeoutError();
+      }
+      if (error.code === "SECURE_STORAGE_BLOCKED") throw blockedError();
       throw new Error(
-        "Impossibile proteggere le credenziali AI nel portachiavi del sistema.",
+        "Impossibile proteggere le credenziali nel portachiavi del sistema. Non verranno salvate in chiaro.",
       );
     }
-    const data = this.read();
-    data.credentials[id] = encrypted;
-    this.persist(data);
   }
-  delete(id) {
-    const data = this.read();
-    delete data.credentials[this.id(id)];
-    this.persist(data);
+  async delete(id) {
+    this.id(id);
+    const deadline = context(this.timeoutMs);
+    return this.mutate(async () => {
+      const latest = await this.read();
+      delete latest.credentials[id];
+      await this.persist(latest, deadline);
+    }, deadline);
   }
 }
 
-module.exports = { AIVault };
+// Browser QA never persists credentials; production uses native safeStorage.
+class MemoryVault {
+  constructor() {
+    this.entries = new Map();
+  }
+  id(id) {
+    return AIVault.prototype.id.call(this, id);
+  }
+  has(id) {
+    return this.entries.has(this.id(id));
+  }
+  get(id) {
+    const value = this.entries.get(this.id(id));
+    return value ? structuredClone(value) : null;
+  }
+  set(id, credentials) {
+    this.entries.set(
+      this.id(id),
+      AIVault.prototype.validate.call(this, credentials),
+    );
+  }
+  delete(id) {
+    this.entries.delete(this.id(id));
+  }
+}
+module.exports = { AIVault, MemoryVault, DEFAULT_TIMEOUT_MS };
